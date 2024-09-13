@@ -15,7 +15,7 @@ n_filters = [24, 48, 48, 96, 192]
 #batchsize = 10000
 
 class cnn_class(nn.Module):
-    def __init__(self):
+    def __init__(self, window = 180, kernel_size = 1, dropout = 0.4, n_fc_neurons = 64, n_filters = [24, 48, 48, 96, 192],):
         super().__init__()
         self.conv1a = nn.Conv1d(window,n_filters[0],kernel_size,padding='same')
         self.conv1b = nn.Conv1d(n_filters[0],n_filters[0],kernel_size,padding='same')
