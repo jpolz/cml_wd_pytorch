@@ -2,20 +2,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-window = 180
-
-kernel_size = 1
-
-dropout = 0.4
-
-n_fc_neurons = 64
-
-n_filters = [24, 48, 48, 96, 192]
-
-#batchsize = 10000
 
 class cnn_class(nn.Module):
-    def __init__(self, window = 180, kernel_size = 1, dropout = 0.4, n_fc_neurons = 64, n_filters = [24, 48, 48, 96, 192],):
+    def __init__(self, window = 180, kernel_size = 3, dropout = 0.4, n_fc_neurons = 64, n_filters = [24, 48, 48, 96, 192],):
         super().__init__()
         self.conv1a = nn.Conv1d(window,n_filters[0],kernel_size,padding='same')
         self.conv1b = nn.Conv1d(n_filters[0],n_filters[0],kernel_size,padding='same')
@@ -35,10 +24,10 @@ class cnn_class(nn.Module):
         self.act4 = nn.ReLU()
         self.pool4 = nn.MaxPool1d(kernel_size)
 
-        self.conv5a = nn.Conv1d(n_filters[3],n_filters[4],kernel_size,padding='same')
+        self.conv5a = nn.Conv1d(n_filters[2],n_filters[4],kernel_size,padding='same')
         self.conv5b = nn.Conv1d(n_filters[4],n_filters[4],kernel_size,padding='same')
         self.act5 = nn.ReLU()
-        self.pool5 = nn.AvgPool1d(kernel_size) #is it global?
+        # self.pool5 = nn.AvgPool1d(kernel_size) #is it global?
 
         ### FC part 
         self.dense1 = nn.Linear(2,n_fc_neurons)
@@ -61,28 +50,53 @@ class cnn_class(nn.Module):
         x = self.act3(self.conv3a(x))
         x = self.act3(self.conv3b(x))
         x = self.pool3(x)
-        print("pool3 finished")
-        x = self.act4(self.conv4a(x))
-        x = self.act4(self.conv4b(x))
-        x = self.pool4(x)
-        print("pool4 finished")
+        # x = self.act4(self.conv4a(x))
+        # x = self.act4(self.conv4b(x))
+        # x = self.pool4(x)
+        # print("pool4 finished")
         x = self.act5(self.conv5a(x))
         x = self.act5(self.conv5b(x))
-        x = self.pool5(x)
-        print("pool5 finished")
+        x = torch.mean(x,dim=-1)
         
         ### FC part
         x = nn.ReLU()(self.dense1(x))
-        print("ReLU1 finished")
         x = self.drop1(x)
-        print("first drop")
         x = nn.ReLU()(self.dense2(x))
-        print("ReLU2 finished")
         x = self.drop2(x)
-        print("second drop")
         x = nn.Sigmoid()(self.denseOut(x))
 
-        return x 
+        return x
 
 
-        
+batchsize = 3
+batch_num = 5
+
+### random data
+size = batch_num*batchsize
+bsp = np.random.rand(size,2,180)
+bsp = torch.Tensor(bsp)
+
+bsp_out = np.random.randint(0,2, size=(size,1))
+bsp_out = torch.Tensor(bsp_out)
+
+
+### prepare data
+dataset = torch.utils.data.TensorDataset(bsp, bsp_out)
+trainloader = torch.utils.data.DataLoader(dataset, batch_size = batchsize, shuffle = False)
+
+### train model
+cnn_model = cnn_class()
+
+def train_model(train_dataloader, model, epoch_num):
+    loss_fn = nn.BCELoss()
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
+    for epoch in range(epoch_num):
+        for inputs, targets in train_dataloader:
+            optimizer.zero_grad()
+            y_hat = cnn_model(inputs)
+            loss = loss_fn(y_hat, targets)
+            loss.backward()
+            optimizer.step()
+
+
+# train_model(trainloader, cnn_model, 3)
