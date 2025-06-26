@@ -7,7 +7,14 @@ authors = [
     { name = "julius.polz", email = "julius.polz@kit.edu" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    'matplotlib',
+    'netcdf4',
+    'torch',
+    'xarray',
+    'einops',
+    'tqdm',
+]
 
 [project.scripts]
 cml-wd-pytorch = "cml_wd_pytorch:main"
