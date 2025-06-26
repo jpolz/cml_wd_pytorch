@@ -17,6 +17,7 @@ dependencies = [
     'tqdm',
     'torchinfo',
     'pyyaml',
+    'dask',
 ]
 
 [project.scripts]
