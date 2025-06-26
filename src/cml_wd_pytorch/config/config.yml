@@ -7,8 +7,8 @@ experiment:
 
 # Data parameters
 data:
-  path_train: "data/dummy_data.zarr"  # Path to the training data in Zarr format
-  path_val: "data/dummy_data.zarr"    # Path to the validation data in Zarr format
+  path_train: "/bg/fast/aihydromet/cml_wet_dry_radklim/cml_radklim.zarr"  # Path to the training data in Zarr format
+  path_val: "/bg/fast/aihydromet/cml_wet_dry_radklim/cml_radklim.zarr"    # Path to the validation data in Zarr format
   num_workers: 40
 
 # Model parameters

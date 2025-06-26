@@ -41,10 +41,10 @@ class ZarrDataset(Dataset):
         if indices is None:
             self.ds = xr.open_zarr(path)
         else:
-            self.ds = xr.open_zarr(path).isel(sample=indices)
+            self.ds = xr.open_zarr(path).isel(sample_number=indices)
         if load:
             self.ds.load()
-        self.n_samples = len(self.ds.sample)
+        self.n_samples = len(self.ds.sample_number)
         
     def __len__(self):
         length = self.n_samples
@@ -54,9 +54,9 @@ class ZarrDataset(Dataset):
         """
         Load and return a single sample.
         """
-        sample = self.ds.isel(sample=[index])
+        sample = self.ds.isel(sample_number=[index])
         cml = torch.tensor(sample['tl'].values, dtype=torch.float32)
-        ref = torch.tensor(sample['ref'].values, dtype=torch.float32)
+        ref = torch.tensor(sample['wet_radar'].values, dtype=torch.float32)
 
         return cml, ref
 

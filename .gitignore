@@ -2,3 +2,5 @@
 archive/
 results/*
 notebooks/
+*.pyc
+*__pycache__/
