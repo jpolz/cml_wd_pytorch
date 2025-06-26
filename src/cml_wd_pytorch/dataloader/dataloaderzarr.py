@@ -55,9 +55,10 @@ class ZarrDataset(Dataset):
         Load and return a single sample.
         """
         sample = self.ds.isel(sample=[index])
-        sample = torch.tensor(sample['tl'].values, dtype=torch.float32)
+        cml = torch.tensor(sample['tl'].values, dtype=torch.float32)
+        ref = torch.tensor(sample['ref'].values, dtype=torch.float32)
 
-        return sample
+        return cml, ref
 
     def close(self):
         """

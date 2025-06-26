@@ -29,6 +29,31 @@
                 "channel"
             ]
         },
+        "ref/.zarray": {
+            "chunks": [
+                1000
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dtype": "<f8",
+            "fill_value": "NaN",
+            "filters": null,
+            "order": "C",
+            "shape": [
+                1000
+            ],
+            "zarr_format": 2
+        },
+        "ref/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "sample"
+            ]
+        },
         "sample/.zarray": {
             "chunks": [
                 1000

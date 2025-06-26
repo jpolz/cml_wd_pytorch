@@ -67,6 +67,24 @@ class cnn(nn.Module):
         x = self.final_act(self.denseout(x))
 
         return x
+    
+    def train_step(self, x, y, optimizer):
+
+        # zero grad
+        optimizer.zero_grad()
+        pred = self.forward(x)
+        loss = nn.BCELoss()(pred.squeeze(), y.float())
+        # backward pass
+        loss.backward()
+        # update weights
+        optimizer.step()
+        return loss.item(), pred.squeeze()
+    
+    def test_step(self, x, y):
+        with torch.no_grad():
+            pred = self.forward(x)
+            loss = nn.BCELoss()(pred.squeeze(), y.float())
+        return loss.item(), pred.squeeze()
 
 
 if __name__ == "__main__":

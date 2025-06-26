@@ -9,11 +9,14 @@ if __name__ == "__main__":
 
     # Create random data
     data = np.random.rand(n_samples, n_channels, n_timesteps)
+    # ref = np.random.randint(0, 2, size=n_samples)  # Binary reference labels (0 or 1)
+    ref = np.ones(n_samples)  # All ones for simplicity, can be modified as needed
 
     # Create an xarray Dataset
     ds = xr.Dataset(
         {
-            "tl": (("sample", "channel", "time"), data)
+            "tl": (("sample", "channel", "time"), data),
+            "ref": (("sample",), ref)
         },
         coords={
             "sample": np.arange(n_samples),
@@ -23,4 +26,4 @@ if __name__ == "__main__":
     )
 
     # Save the dataset to a Zarr file
-    ds.to_zarr('dummy_data.zarr', mode='w', consolidated=True)  # Use consolidated=True for better performance
+    ds.to_zarr('data/dummy_data.zarr', mode='w', consolidated=True)  # Use consolidated=True for better performance
