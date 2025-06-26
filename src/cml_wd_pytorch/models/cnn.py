@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+from torchinfo import summary
 
 class ConvBlock(nn.Module):
     def __init__(self, kernel_size, dim_in, dim, dim_out):
@@ -21,7 +21,7 @@ class ConvBlock(nn.Module):
         x = self.act2(x)
         return x
 
-class cnn_class(nn.Module):
+class cnn(nn.Module):
     def __init__(self, kernel_size = 3, dropout = 0.4, n_fc_neurons = 64, n_filters = [24, 48, 48, 96, 192],):
         super().__init__()
         self.channels = 2
@@ -36,20 +36,24 @@ class cnn_class(nn.Module):
         self.conv5a = nn.Conv1d(n_filters[2],n_filters[4],kernel_size,padding='same')
         self.conv5b = nn.Conv1d(n_filters[4],n_filters[4],kernel_size,padding='same')
         self.act = nn.ReLU()
+        self.pool = nn.MaxPool1d(self.kernelsize)
 
         ### FC part 
         self.dense1 = nn.Linear(192,n_fc_neurons)
         self.drop1 = nn.Dropout(p=dropout)
         self.dense2 = nn.Linear(n_fc_neurons, n_fc_neurons)
         self.drop2 = nn.Dropout(dropout)
-        self.denseOut = nn.Linear(n_fc_neurons, 1)
+        self.denseout = nn.Linear(n_fc_neurons, 1)
         self.final_act = nn.Sigmoid()
 
     
     def forward(self, x):
         x = self.cb1(x)
+        x = self.pool(x)
         x = self.cb2(x)
+        x = self.pool(x)
         x = self.cb3(x)
+        x = self.pool(x)
         
         x = self.act(self.conv5a(x))
         x = self.act(self.conv5b(x))
@@ -60,6 +64,12 @@ class cnn_class(nn.Module):
         x = self.drop1(x)
         x = self.act(self.dense2(x))
         x = self.drop2(x)
-        x = self.final_act(self.denseOut(x))
+        x = self.final_act(self.denseout(x))
 
         return x
+
+
+if __name__ == "__main__":
+    # Example usage
+    model = cnn()
+    summary(model, input_size=(1, 2, 180))  # Example input size (batch_size, channels, sequence_length)
