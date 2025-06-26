@@ -12,6 +12,7 @@ dependencies = [
     'netcdf4',
     'torch',
     'xarray',
+    'zarr~=2.17',
     'einops',
     'tqdm',
     'torchinfo',
