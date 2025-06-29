@@ -18,6 +18,7 @@ dependencies = [
     'torchinfo',
     'pyyaml',
     'dask',
+    'ipykernel',
 ]
 
 [project.scripts]

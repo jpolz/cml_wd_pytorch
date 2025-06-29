@@ -22,7 +22,7 @@ class ConvBlock(nn.Module):
         return x
 
 class cnn(nn.Module):
-    def __init__(self, kernel_size = 3, dropout = 0.4, n_fc_neurons = 64, n_filters = [24, 48, 48, 96, 192],):
+    def __init__(self, kernel_size = 3, dropout = 0.4, n_fc_neurons = 64, n_filters = [24, 48, 48, 96, 192], final_act='sigmoid'):
         super().__init__()
         self.channels = 2
         self.kernelsize = kernel_size
@@ -44,7 +44,14 @@ class cnn(nn.Module):
         self.dense2 = nn.Linear(n_fc_neurons, n_fc_neurons)
         self.drop2 = nn.Dropout(dropout)
         self.denseout = nn.Linear(n_fc_neurons, 1)
-        self.final_act = nn.Sigmoid()
+        if final_act == 'relu':
+            self.final_act = nn.ReLU()
+        elif final_act == 'sigmoid':
+            self.final_act = nn.Sigmoid()
+        elif final_act == 'tanh':
+            self.final_act = nn.Tanh()
+        else:
+            raise ValueError("final_act must be one of ['relu', 'sigmoid', 'tanh']")
 
     
     def forward(self, x):
@@ -68,23 +75,34 @@ class cnn(nn.Module):
 
         return x
     
-    def train_step(self, x, y, optimizer):
+    def train_step(self, x, y, optimizer, loss='bce'):
 
         # zero grad
         optimizer.zero_grad()
         pred = self.forward(x)
-        loss = nn.BCELoss()(pred.squeeze(), y.float())
+        if loss == 'bce':
+            # binary cross entropy loss
+            loss = nn.BCELoss()(pred.squeeze(), y.float())
+        elif loss == 'mse':
+            # mean squared error loss
+            loss = nn.MSELoss()(pred.squeeze(), y.float())
         # backward pass
         loss.backward()
         # update weights
         optimizer.step()
         return loss.item(), pred.squeeze()
     
-    def test_step(self, x, y):
+    def test_step(self, x, y, loss='bce'):
         with torch.no_grad():
             pred = self.forward(x)
-            loss = nn.BCELoss()(pred.squeeze(), y.float())
+            if loss == 'bce':
+                # binary cross entropy loss
+                loss = nn.BCELoss()(pred.squeeze(), y.float())
+            elif loss == 'mse':
+                # mean squared error loss
+                loss = nn.MSELoss()(pred.squeeze(), y.float())
         return loss.item(), pred.squeeze()
+
 
 
 if __name__ == "__main__":
