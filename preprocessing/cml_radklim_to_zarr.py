@@ -4,10 +4,11 @@ import glob
 
 if __name__ == "__main__":
     data_dir = "/bg/fast/aihydromet/cml_wet_dry_radklim"
-    target_file = "cml_radklim.zarr"
+    target_file = "cml_radklim_v3_2020.zarr"
 
     # Get all netCDF files in the target directory
-    files = glob.glob(f"{data_dir}/train_data_v2*.nc")
+    files = glob.glob(f"{data_dir}/train_data_v3_202*.nc")
+    # print(files)
     ds = xr.open_dataset(files[0])  # Check if the first file can be opened
     print(ds)
     files.sort()  # Sort files to ensure consistent order

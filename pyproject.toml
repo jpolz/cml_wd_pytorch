@@ -19,6 +19,7 @@ dependencies = [
     'pyyaml',
     'dask',
     'ipykernel',
+    'scikit-learn',
 ]
 
 [project.scripts]

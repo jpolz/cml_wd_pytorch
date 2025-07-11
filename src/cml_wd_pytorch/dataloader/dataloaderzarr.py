@@ -57,9 +57,10 @@ class ZarrDataset(Dataset):
         sample = self.ds.isel(sample_number=[index])
         cml = torch.tensor(sample['tl'].values, dtype=torch.float32)
         ref = torch.tensor(sample['wet_radar'].values, dtype=torch.float32)
-        r = torch.tensor(sample['radar'].values[:,-1], dtype=torch.float32)
+        r = torch.tensor(sample['radar'].values, dtype=torch.float32)
+        r_cml = torch.tensor(np.nan_to_num(sample['cml_rain'].values), dtype=torch.float32)
 
-        return cml, ref, r
+        return cml, ref, r, r_cml
 
     def close(self):
         """

@@ -22,7 +22,7 @@ class ConvBlock(nn.Module):
         return x
 
 class cnn(nn.Module):
-    def __init__(self, kernel_size = 3, dropout = 0.4, n_fc_neurons = 64, n_filters = [24, 48, 48, 96, 192], final_act='sigmoid'):
+    def __init__(self, kernel_size = 3, dropout = 0.4, n_fc_neurons = 128, n_filters = [48, 96, 96, 192, 192], final_act='sigmoid'):
         super().__init__()
         self.channels = 2
         self.kernelsize = kernel_size

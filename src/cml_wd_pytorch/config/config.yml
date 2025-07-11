@@ -1,15 +1,16 @@
 # General experiment configuration
 experiment:
   name: "NA"
-  debug: true # Set to false for production runs, otherwise true for debugging without saving checkpoints or loss curves
+  debug: False # Set to false for production runs, otherwise true for debugging without saving checkpoints or loss curves
   run_id: "auto"
   seed: 42
 
 # Data parameters
 data:
-  path_train: "/bg/fast/aihydromet/cml_wet_dry_radklim/cml_radklim.zarr"  # Path to the training data in Zarr format
-  path_val: "/bg/fast/aihydromet/cml_wet_dry_radklim/cml_radklim.zarr"    # Path to the validation data in Zarr format
+  path_train: "/bg/fast/aihydromet/cml_wet_dry_radklim/cml_radklim_v3_2018_2019.zarr"  # Path to the training data in Zarr format
+  path_val: "/bg/fast/aihydromet/cml_wet_dry_radklim/cml_radklim_v3_2020.zarr"    # Path to the validation data in Zarr format
   num_workers: 40
+  reflength: 60  # Length of the radar data to consider for rainfall rate or wet label calculation
 
 # Model parameters
 model:
@@ -18,7 +19,7 @@ model:
 # Training parameters
 training:
   batch_size: 100
-  epochs: 100
+  epochs: 500
   optimizer: "AdamW"
   learning_rate: 0.0001
   amsgrad: true
@@ -26,4 +27,4 @@ training:
     "bce",
   ]
   loss_weights: [1,]
-  checkpoint_interval: 10
+  checkpoint_interval: 20
