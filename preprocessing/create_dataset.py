@@ -1,3 +1,29 @@
+"""
+create_dataset.py
+-----------------
+This script processes commercial microwave link (CML) and weather radar data to generate training datasets for machine learning applications in rainfall detection and estimation. It loads, synchronizes, and preprocesses CML and radar data, applies rolling window extraction, balances wet/dry classes, and saves the resulting dataset as NetCDF files for each month and year.
+
+Functions:
+    _rolling_window(a, window):
+        Efficiently creates a rolling window view of the last axis of array 'a' with the specified window size.
+    balance_classes(a, boo):
+        Balances the dataset along the 'sample_number' dimension so that the number of positive and negative samples (as defined by boolean array 'boo') is equal.
+
+Main Workflow:
+    - Iterates over years and months to process data in batches.
+    - Loads and synchronizes CML and radar datasets.
+    - Computes rolling medians and normalizes CML signal levels.
+    - Extracts rolling windows of time series data for model input.
+    - Balances the dataset for wet/dry radar events.
+    - Saves the processed dataset to NetCDF files for downstream ML tasks.
+
+Dependencies:
+    - xarray
+    - einops
+    - numpy
+    - tqdm
+    - scikit-learn
+"""
 import xarray as xr
 import einops
 import numpy as np
