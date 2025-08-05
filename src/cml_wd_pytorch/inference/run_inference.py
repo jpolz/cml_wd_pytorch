@@ -184,30 +184,55 @@ def run_inference(model, data, batch_size=32):
 
 def redistribute_results(results, data):
     """
-    write the reults to the original data
+    Redistribute the 1D inference results back to the original data structure.
+
+    Args:
+        results (dict): Dictionary containing predictions, cml_ids, and times from inference
+        data (xarray.Dataset): Original dataset to add predictions to
+
+    Returns:
+        xarray.Dataset: Dataset with predictions added as a new variable
     """
-    predictions = results["predictions"].numpy()
+    predictions = (
+        results["predictions"].numpy().squeeze()
+    )  # Remove any extra dimensions
     cml_ids = results["cml_ids"].numpy()
     times = results["times"].numpy()
 
-    ref_times = data.time.values
-    ref_cml_ids = data.cml_id.values
-    # align predictions with the original data
-    
+    # Get original dimensions
+    ref_times = data.time.to_numpy()
+    ref_cml_ids = data.cml_id.to_numpy()
+
+    # Initialize prediction array with NaN values
+    pred_array = np.full((len(ref_times), len(ref_cml_ids)), np.nan)
+
+    # Map predictions back to the original grid
+    for i, (pred_cml_id, pred_time, pred_value) in enumerate(
+        zip(cml_ids, times, predictions)
+    ):
+        # Find indices in the original data
+        try:
+            cml_idx = np.where(ref_cml_ids == pred_cml_id)[0][0]
+            time_idx = np.where(ref_times == pred_time)[0][0]
+            pred_array[time_idx, cml_idx] = pred_value
+        except (IndexError, ValueError):
+            # Skip if the time or cml_id is not found in the original data
+            continue
 
     # Create a new DataArray to hold the predictions
     pred_data = xr.DataArray(
-        predictions,
-        dims=["time","cml_id"],
+        pred_array,
+        dims=["time", "cml_id"],
         coords={
-            "time": times,
-            "channels": data.channels,
-            "cml_id": cml_ids,
+            "time": ref_times,
+            "cml_id": ref_cml_ids,
         },
+        name="predictions",
     )
 
-    # Convert the DataArray to a Dataset and add it to the original data
-    return data.assign(TL=pred_data)
+    # Add the predictions to the dataset
+    return data.assign(predictions=pred_data)
+
 
 def main(model_path, data, batch_size=32):
     """
@@ -217,14 +242,14 @@ def main(model_path, data, batch_size=32):
         data (xarray.DataArray): The input data array.
         batch_size (int): The number of samples in each batch.
     Returns:
-        results (dict): A dictionary containing predictions, cml_ids, and times.
+        xarray.Dataset: Dataset with predictions added as a new variable.
     """
     device = set_device()
     model = load_model(model_path, device)
     results = run_inference(model, data, batch_size)
-    data = data.to_dataset(name='TL')  # Convert xarray DataArray to Dataset if needed
-    results = reshape_results(results, data)
-    return results
+    data = data.to_dataset(name="TL")  # Convert xarray DataArray to Dataset if needed
+    final_results = redistribute_results(results, data)
+    return final_results
 
 
 def test_main():
@@ -243,23 +268,41 @@ def test_main():
             "cml_id": np.arange(5),
         },
     )
-    results = main(model_path, data, batch_size=32)
-    print("Results keys:", results.keys())
-    print("Predictions shape:", results["predictions"].shape)
-    print("Number of CML IDs:", len(results["cml_ids"]))
-    print("Number of times:", len(results["times"]))
-    print("Sample predictions:", results["predictions"][:5])
+    final_dataset = main(model_path, data, batch_size=32)
+    import logging
+
+    logging.basicConfig(level=logging.INFO)
+    logging.info(f"Final dataset variables: {list(final_dataset.data_vars.keys())}")
+    logging.info(f"Final dataset dimensions: {final_dataset.dims}")
+    if "predictions" in final_dataset:
+        logging.info(f"Predictions shape: {final_dataset['predictions'].shape}")
+        logging.info(f"Predictions dimensions: {final_dataset['predictions'].dims}")
+        logging.info(
+            f"Sample predictions:\n{final_dataset['predictions'][:5, :3].values}"
+        )
 
 
 if __name__ == "__main__":
-    # import argparse
-    # parser = argparse.ArgumentParser(description="Run inference on a PyTorch model with xarray data.")
-    # parser.add_argument('--model_path', type=str, required=True, help='Path to the trained PyTorch model.')
-    # parser.add_argument('--batch_size', type=int, default=32, help='Batch size for inference.')
+    import argparse
+    import logging
 
-    # args = parser.parse_args()
+    logging.basicConfig(level=logging.INFO)
+    parser = argparse.ArgumentParser(
+        description="Run inference on a PyTorch model with xarray data."
+    )
+    parser.add_argument(
+        "--model_path",
+        type=str,
+        required=True,
+        help="Path to the trained PyTorch model.",
+    )
+    parser.add_argument(
+        "--batch_size", type=int, default=32, help="Batch size for inference."
+    )
 
-    # predictions = main(args.model_path, args.batch_size)
-    # print("Inference completed. Predictions:", predictions)
+    args = parser.parse_args()
 
-    test_main()  # Run the test function to demonstrate functionality
+    predictions = main(args.model_path, args.batch_size)
+    logging.info(f"Inference completed. Predictions: {predictions}")
+
+    # test_main()  # Run the test function to demonstrate functionality
