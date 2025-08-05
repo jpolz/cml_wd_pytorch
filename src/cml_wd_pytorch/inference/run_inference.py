@@ -163,8 +163,17 @@ def build_dataloader(data, window_size, batch_size, device):
         combined_samples["cml_id"],  # Keep as numpy array
         combined_samples["time"],  # Keep as numpy array
     )
+
+    # Custom collate function to handle numpy arrays properly
+    def custom_collate(batch):
+        tensors, cml_ids, times = zip(*batch)
+        # Stack tensors normally
+        tensor_batch = torch.stack(tensors, dim=0)
+        # Keep metadata as lists (since they're already numpy objects)
+        return tensor_batch, list(cml_ids), list(times)
+
     dataloader = torch.utils.data.DataLoader(
-        dataset, batch_size=batch_size, shuffle=False
+        dataset, batch_size=batch_size, shuffle=False, collate_fn=custom_collate
     )
     return dataloader
 
@@ -284,7 +293,7 @@ def test_cnn_wd():
         np.random.rand(1000, 2, 5),
         dims=["time", "channels", "cml_id"],
         coords={
-            "time": np.arange(1000),
+            "time": np.datetime64("2023-01-01") + np.arange(1000),
             "channels": np.arange(2),
             "cml_id": ["A", "B", "C", "D", "E"],
         },
