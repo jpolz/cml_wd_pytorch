@@ -137,72 +137,31 @@ def build_dataloader(data, window_size, batch_size, device):
     """
     combined_samples = batchify_windows(data, window_size, batch_size)
 
-    # Convert data to the right format for the model
-    # Data should be (batch_size, channels, time_window)
+    # Only batch the data tensor; keep cml_id and time as arrays outside the DataLoader
     tensor_data = torch.tensor(combined_samples["data"], dtype=torch.float32)
-
-    # The model expects (batch_size, channels, time_window), so we need to transpose
-    # from (batch_size, time_window, channels) to (batch_size, channels, time_window)
-    tensor_data = tensor_data.permute(0, 2, 1)
-
-    # Create a custom dataset that keeps metadata as numpy arrays
-    class NumpyMetadataDataset(torch.utils.data.Dataset):
-        def __init__(self, tensor_data, cml_ids, times):
-            self.tensor_data = tensor_data
-            self.cml_ids = cml_ids
-            self.times = times
-
-        def __len__(self):
-            return len(self.tensor_data)
-
-        def __getitem__(self, idx):
-            return self.tensor_data[idx], self.cml_ids[idx], self.times[idx]
-
-    dataset = NumpyMetadataDataset(
-        tensor_data,
-        combined_samples["cml_id"],  # Keep as numpy array
-        combined_samples["time"],  # Keep as numpy array
-    )
-
-    # Custom collate function to handle numpy arrays properly
-    def custom_collate(batch):
-        tensors, cml_ids, times = zip(*batch)
-        # Stack tensors normally
-        tensor_batch = torch.stack(tensors, dim=0)
-        # Keep metadata as lists (since they're already numpy objects)
-        return tensor_batch, list(cml_ids), list(times)
+    tensor_data = tensor_data.permute(0, 2, 1)  # (batch, channels, window)
 
     dataloader = torch.utils.data.DataLoader(
-        dataset, batch_size=batch_size, shuffle=False, collate_fn=custom_collate
+        tensor_data, batch_size=batch_size, shuffle=False
     )
-    return dataloader
+    # Return dataloader and metadata arrays
+    return dataloader, combined_samples["cml_id"], combined_samples["time"]
 
 
 def run_inference(model, data, batch_size=32):
     device = set_device()
-    window_size = (
-        model.window_size if hasattr(model, "window_size") else 180
-    )  # TODO: remove hardcoded value
-    dataloader = build_dataloader(data, window_size, batch_size, device)
+    window_size = model.window_size if hasattr(model, "window_size") else 180
+    dataloader, cml_ids, times = build_dataloader(data, window_size, batch_size, device)
     predictions = []
-    cml_ids_list = []
-    times_list = []
 
     for batch in dataloader:
-        inputs, cml_ids, times = batch
-        inputs = inputs.to(device)
+        inputs = batch.to(device)
         outputs = predict_batch(model, inputs, device)
         predictions.append(outputs.cpu())
-        cml_ids_list.extend(cml_ids)  # cml_ids is numpy array, use extend
-        times_list.extend(times)  # times is numpy array, use extend
 
-    # Concatenate all predictions (tensors)
     all_predictions = torch.cat(predictions, dim=0)
-    # Convert lists back to numpy arrays
-    all_cml_ids = np.array(cml_ids_list)
-    all_times = np.array(times_list)
-
-    return {"predictions": all_predictions, "cml_ids": all_cml_ids, "times": all_times}
+    # cml_ids and times are already numpy arrays, no need to collect per batch
+    return {"predictions": all_predictions, "cml_ids": cml_ids, "times": times}
 
 
 def redistribute_results(results, data):
@@ -312,46 +271,5 @@ def test_cnn_wd():
         )
 
 
-def main():
-    """
-    Main function for running inference as a standalone script.
-    Creates sample data and runs inference using command line arguments.
-    """
-    import argparse
-    import logging
-
-    logging.basicConfig(level=logging.INFO)
-    parser = argparse.ArgumentParser(
-        description="Run inference on a PyTorch model with xarray data."
-    )
-    parser.add_argument(
-        "--model_path",
-        type=str,
-        required=True,
-        help="Path to the trained PyTorch model.",
-    )
-    parser.add_argument(
-        "--batch_size", type=int, default=32, help="Batch size for inference."
-    )
-
-    args = parser.parse_args()
-
-    # Create sample data for demonstration
-    data = xr.DataArray(
-        np.random.rand(1000, 2, 5),
-        dims=["time", "channels", "cml_id"],
-        coords={
-            "time": np.arange(1000),
-            "channels": np.arange(2),
-            "cml_id": np.arange(5),
-        },
-    )
-
-    predictions = cnn_wd(args.model_path, data, args.batch_size)
-    logging.info(f"Inference completed. Predictions: {predictions}")
-
-
 if __name__ == "__main__":
     test_cnn_wd()
-
-    # test_main()  # Run the test function to demonstrate functionality
