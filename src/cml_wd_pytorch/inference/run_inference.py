@@ -234,9 +234,9 @@ def redistribute_results(results, data):
     return data.assign(predictions=pred_data)
 
 
-def main(model_path, data, batch_size=32):
+def cnn_wd(model_path, data, batch_size=32):
     """
-    Main function to run inference on the input data using the specified model.
+    Function to run wet/dry inference on input data using a trained CNN model.
     Args:
         model_path (str): Path to the trained PyTorch model.
         data (xarray.DataArray): The input data array.
@@ -252,13 +252,13 @@ def main(model_path, data, batch_size=32):
     return final_results
 
 
-def test_main():
+def test_cnn_wd():
     """
     Test function to run inference with a sample model and data.
     This is for demonstration purposes and should be replaced with actual data and model paths.
     """
     # Example usage
-    model_path = "/bg/fast/env_polz-j/uvprojects/cml_wd_pytorch/results/2025-08-05_14-15-216a5ebdc9-9d08-4d07-bb38-f0c4e1de4c34/models/model_epoch_10.pth"  # Replace with your model path
+    model_path = "/bg/fast/env_polz-j/uvprojects/cml_wd_pytorch/data/dummy_model/model_epoch_0.pth"  # Replace with your model path
     data = xr.DataArray(
         np.random.rand(1000, 2, 5),
         dims=["time", "channels", "cml_id"],
@@ -268,7 +268,7 @@ def test_main():
             "cml_id": np.arange(5),
         },
     )
-    final_dataset = main(model_path, data, batch_size=32)
+    final_dataset = cnn_wd(model_path, data, batch_size=32)
     import logging
 
     logging.basicConfig(level=logging.INFO)
@@ -282,7 +282,11 @@ def test_main():
         )
 
 
-if __name__ == "__main__":
+def main():
+    """
+    Main function for running inference as a standalone script.
+    Creates sample data and runs inference using command line arguments.
+    """
     import argparse
     import logging
 
@@ -302,7 +306,22 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    predictions = main(args.model_path, args.batch_size)
+    # Create sample data for demonstration
+    data = xr.DataArray(
+        np.random.rand(1000, 2, 5),
+        dims=["time", "channels", "cml_id"],
+        coords={
+            "time": np.arange(1000),
+            "channels": np.arange(2),
+            "cml_id": np.arange(5),
+        },
+    )
+
+    predictions = cnn_wd(args.model_path, data, args.batch_size)
     logging.info(f"Inference completed. Predictions: {predictions}")
+
+
+if __name__ == "__main__":
+    main()
 
     # test_main()  # Run the test function to demonstrate functionality
