@@ -125,7 +125,7 @@ if __name__ == "__main__":
         load=True, 
         random=True, 
         num_workers=config['data']['num_workers'], 
-        indices=np.arange(10000),
+        indices=np.arange(1000000),
         reflength=config['data']['reflength']
         )
     print('dataloader train length: ', len(dataloader_train))
@@ -135,7 +135,7 @@ if __name__ == "__main__":
         load=True, 
         random=True, 
         num_workers=config['data']['num_workers'], 
-        indices=np.arange(10000),
+        indices=np.arange(1000000),
         reflength=config['data']['reflength']
         )    
     print('dataloader val length: ', len(dataloader_val))
@@ -191,7 +191,7 @@ if __name__ == "__main__":
         test_preds = []
         test_ys = []
         wetcml = []
-        for i, batch in tqdm(enumerate(dataloader_train)):
+        for i, batch in tqdm(enumerate(dataloader_val)):
             x = batch[0].to(device).squeeze()
             # y = batch[1].to(device).squeeze() # reference labels
             y = (batch[2].to(device).squeeze()[:,-config['data']['reflength']:].mean(dim=-1)*60)>0.1
