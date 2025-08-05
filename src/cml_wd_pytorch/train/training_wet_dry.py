@@ -125,7 +125,7 @@ if __name__ == "__main__":
         load=True, 
         random=True, 
         num_workers=config['data']['num_workers'], 
-        indices=None,
+        indices=np.arange(10000),
         reflength=config['data']['reflength']
         )
     print('dataloader train length: ', len(dataloader_train))
@@ -135,7 +135,7 @@ if __name__ == "__main__":
         load=True, 
         random=True, 
         num_workers=config['data']['num_workers'], 
-        indices=None,
+        indices=np.arange(10000),
         reflength=config['data']['reflength']
         )    
     print('dataloader val length: ', len(dataloader_val))
