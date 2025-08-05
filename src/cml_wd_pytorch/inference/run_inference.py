@@ -145,10 +145,23 @@ def build_dataloader(data, window_size, batch_size, device):
     # from (batch_size, time_window, channels) to (batch_size, channels, time_window)
     tensor_data = tensor_data.permute(0, 2, 1)
 
-    dataset = torch.utils.data.TensorDataset(
+    # Create a custom dataset that keeps metadata as numpy arrays
+    class NumpyMetadataDataset(torch.utils.data.Dataset):
+        def __init__(self, tensor_data, cml_ids, times):
+            self.tensor_data = tensor_data
+            self.cml_ids = cml_ids
+            self.times = times
+
+        def __len__(self):
+            return len(self.tensor_data)
+
+        def __getitem__(self, idx):
+            return self.tensor_data[idx], self.cml_ids[idx], self.times[idx]
+
+    dataset = NumpyMetadataDataset(
         tensor_data,
-        torch.tensor(combined_samples["cml_id"], dtype=torch.long),
-        torch.tensor(combined_samples["time"], dtype=torch.long),
+        combined_samples["cml_id"],  # Keep as numpy array
+        combined_samples["time"],  # Keep as numpy array
     )
     dataloader = torch.utils.data.DataLoader(
         dataset, batch_size=batch_size, shuffle=False
@@ -171,13 +184,14 @@ def run_inference(model, data, batch_size=32):
         inputs = inputs.to(device)
         outputs = predict_batch(model, inputs, device)
         predictions.append(outputs.cpu())
-        cml_ids_list.append(cml_ids)
-        times_list.append(times)
+        cml_ids_list.extend(cml_ids)  # cml_ids is numpy array, use extend
+        times_list.extend(times)  # times is numpy array, use extend
 
-    # Concatenate all predictions
+    # Concatenate all predictions (tensors)
     all_predictions = torch.cat(predictions, dim=0)
-    all_cml_ids = torch.cat(cml_ids_list, dim=0)
-    all_times = torch.cat(times_list, dim=0)
+    # Convert lists back to numpy arrays
+    all_cml_ids = np.array(cml_ids_list)
+    all_times = np.array(times_list)
 
     return {"predictions": all_predictions, "cml_ids": all_cml_ids, "times": all_times}
 
@@ -196,8 +210,8 @@ def redistribute_results(results, data):
     predictions = (
         results["predictions"].numpy().squeeze()
     )  # Remove any extra dimensions
-    cml_ids = results["cml_ids"].numpy()
-    times = results["times"].numpy()
+    cml_ids = results["cml_ids"]  # Already numpy array
+    times = results["times"]  # Already numpy array
 
     # Get original dimensions
     ref_times = data.time.to_numpy()
@@ -272,7 +286,7 @@ def test_cnn_wd():
         coords={
             "time": np.arange(1000),
             "channels": np.arange(2),
-            "cml_id": np.arange(5),
+            "cml_id": ["A", "B", "C", "D", "E"],
         },
     )
     final_dataset = cnn_wd(model_path, data, batch_size=32)
