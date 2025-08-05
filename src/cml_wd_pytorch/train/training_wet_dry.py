@@ -230,6 +230,10 @@ if __name__ == "__main__":
         #     print(f'{key}: {loss_dict[key][-1]:.4f}')
 
         if not config['experiment']['debug']:
+            # save model
+            torch.save(model.state_dict(), str(package_path)+'/results/%s/models/model_epoch_%d.pth' % (run_id, epoch))
+            print('Model saved to: ', str(package_path)+'/results/%s/models/model_epoch_%d.pth' % (run_id, epoch))
+
             # save scores to csv
             df = pd.DataFrame(loss_dict)
             df.to_csv(str(package_path)+'/results/%s/scores/scores.csv' % run_id, index=True)
