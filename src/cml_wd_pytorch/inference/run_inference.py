@@ -257,8 +257,15 @@ def test_cnn_wd():
     Test function to run inference with a sample model and data.
     This is for demonstration purposes and should be replaced with actual data and model paths.
     """
+    from pathlib import Path
+
+    # Get repository root directory
+    repo_root = Path(__file__).parent.parent.parent.parent
+
     # Example usage
-    model_path = "/bg/fast/env_polz-j/uvprojects/cml_wd_pytorch/data/dummy_model/model_epoch_0.pth"  # Replace with your model path
+    model_path = (
+        repo_root / "data/dummy_model/model_epoch_0.pth"
+    )  # Relative path to model
     data = xr.DataArray(
         np.random.rand(1000, 2, 5),
         dims=["time", "channels", "cml_id"],
@@ -322,6 +329,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    test_cnn_wd()
 
     # test_main()  # Run the test function to demonstrate functionality
