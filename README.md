@@ -102,8 +102,15 @@ data = xr.open_dataset("your_cml_data.nc")
 # Example: data should be an xarray DataArray of total loss (TL) with dimensions [time, channel_id, cml_id]
 data = data["tl"].transpose("time", "channel_id", "cml_id")
 
-# Run inference
+# Run inference using either a model path or a run_id:
+# Option 1: Provide the path to a trained model (.pth)
 results = cnn_wd("path/to/trained/model.pth", data)
+
+# Option 2: Provide a run_id (will automatically locate model and config in results/{run_id}/)
+results = cnn_wd(run_id, data)
+
+# Optionally, you can specify a custom config path:
+# results = cnn_wd("path/to/trained/model.pth", data, config_path="path/to/config.yml")
 ```
 
 ## 📊 Data Format for training
