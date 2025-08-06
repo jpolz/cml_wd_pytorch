@@ -7,8 +7,8 @@ experiment:
 
 # Data parameters
 data:
-  path_train: "/bg/fast/aihydromet/cml_wet_dry_radklim/cml_radklim_v3_2018_2019.zarr"  # Path to the training data in Zarr format
-  path_val: "/bg/fast/aihydromet/cml_wet_dry_radklim/cml_radklim_v3_2020.zarr"    # Path to the validation data in Zarr format
+  path_train: "/path/to/training/data.zarr"  # Path to the training data in Zarr format
+  path_val: "/path/to/validation/data.zarr"    # Path to the validation data in Zarr format
   num_workers: 40
   reflength: 60  # Length of the radar data to consider for rainfall rate or wet label calculation
 
