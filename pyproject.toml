@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [
     { name = "julius.polz", email = "julius.polz@kit.edu" }
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.9"
 dependencies = [
     'matplotlib',
     'netcdf4',
