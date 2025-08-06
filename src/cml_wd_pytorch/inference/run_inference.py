@@ -13,11 +13,32 @@ cml_id are captured in the batch.
 
 """
 
+import os
+from pathlib import Path
+
 import numpy as np
 import torch
 import xarray as xr
+import yaml
 
 from cml_wd_pytorch.models.cnn import cnn
+
+
+def load_config():
+    """
+    Load configuration from config.yml file.
+    Returns:
+        dict: Configuration dictionary
+    """
+    package_path = Path(
+        os.path.abspath(__file__)
+    ).parent.parent.parent.parent.absolute()
+    config_path = str(package_path) + "/src/cml_wd_pytorch/config/config.yml"
+
+    with open(config_path, "r") as f:
+        config = yaml.safe_load(f)
+
+    return config
 
 
 def set_device():
@@ -60,16 +81,17 @@ def load_model(model_path, device):
     return model
 
 
-def rolling_window(timeseries, valid_times, window_size):
+def rolling_window(timeseries, valid_times, window_size, reflength=60):
     """
     Splits the time series into batches of specified size.
     Args:
         timeseries (list or np.array): The time series data to be split.
         valid_times (list): A list of valid time indices.
         window_size (int): The size of each batch.
+        reflength (int): The reference length for timestamp calculation (from config).
     Returns:
         windowed_series (np.array): A list of batches, each containing a segment of the time series.
-        timestep_indices (list): A list of indices corresponding to the start of each batch.
+        timestep_indices (list): A list of indices corresponding to the target time (end of window - reflength).
     """
     assert window_size > 0, "Window size must be greater than 0"
     assert len(valid_times) == len(timeseries), (
@@ -81,17 +103,23 @@ def rolling_window(timeseries, valid_times, window_size):
         end = start + window_size
         if end <= len(timeseries):
             windowed_series.append(timeseries[start:end])
-            timestep_indices.append(valid_times[start])
+            # Use the timestamp that corresponds to the prediction target time
+            # This is the end of the window minus the reflength offset
+            target_idx = (
+                end - int(reflength / 2) if end - int(reflength / 2) >= 0 else end - 1
+            )
+            timestep_indices.append(valid_times[target_idx])
     return windowed_series, timestep_indices
 
 
-def batchify_windows(data, window_size, batch_size):
+def batchify_windows(data, window_size, batch_size, reflength=60):
     """
     Converts a data array into batches of specified window size.
     Args:
         data (xarray.DataArray): The input data array.
         window_size (int): The size of each time series window.
         batch_size (int): The number of samples in each batch.
+        reflength (int): The reference length for timestamp calculation (from config).
     Returns:
         combined_samples (dict): A dictionary containing concatenated cml_id, time, and data arrays.
     """
@@ -104,7 +132,7 @@ def batchify_windows(data, window_size, batch_size):
         timeseries = cml_data.values
         valid_times = cml_data.time.values
         windowed_series, timestep_indices = rolling_window(
-            timeseries, valid_times, window_size
+            timeseries, valid_times, window_size, reflength
         )
         cml_id = np.repeat(cml, len(windowed_series))
         samples.append(
@@ -124,7 +152,7 @@ def batchify_windows(data, window_size, batch_size):
     return combined_samples
 
 
-def build_dataloader(data, window_size, batch_size, device):
+def build_dataloader(data, window_size, batch_size, device, reflength=60):
     """
     Builds a PyTorch DataLoader from the input data.
     Args:
@@ -132,10 +160,11 @@ def build_dataloader(data, window_size, batch_size, device):
         window_size (int): The size of each time series window.
         batch_size (int): The number of samples in each batch.
         device (torch.device): The device to run the model on.
+        reflength (int): The reference length for timestamp calculation (from config).
     Returns:
         dataloader (torch.utils.data.DataLoader): A DataLoader for the input data.
     """
-    combined_samples = batchify_windows(data, window_size, batch_size)
+    combined_samples = batchify_windows(data, window_size, batch_size, reflength)
 
     # Only batch the data tensor; keep cml_id and time as arrays outside the DataLoader
     tensor_data = torch.tensor(combined_samples["data"], dtype=torch.float32)
@@ -148,10 +177,12 @@ def build_dataloader(data, window_size, batch_size, device):
     return dataloader, combined_samples["cml_id"], combined_samples["time"]
 
 
-def run_inference(model, data, batch_size=32):
+def run_inference(model, data, batch_size=32, reflength=60):
     device = set_device()
     window_size = model.window_size if hasattr(model, "window_size") else 180
-    dataloader, cml_ids, times = build_dataloader(data, window_size, batch_size, device)
+    dataloader, cml_ids, times = build_dataloader(
+        data, window_size, batch_size, device, reflength
+    )
     predictions = []
 
     for batch in dataloader:
@@ -216,19 +247,72 @@ def redistribute_results(results, data):
     return data.assign(predictions=pred_data)
 
 
-def cnn_wd(model_path, data, batch_size=32):
+def cnn_wd(model_path_or_run_id, data, batch_size=32, config_path=None):
     """
     Function to run wet/dry inference on input data using a trained CNN model.
     Args:
-        model_path (str): Path to the trained PyTorch model.
+        model_path_or_run_id (str): Either a path to the trained PyTorch model or a run_id.
+                                   If run_id, will look for model and config in results/{run_id}/
         data (xarray.DataArray): The input data array.
         batch_size (int): The number of samples in each batch.
+        config_path (str, optional): Path to config file. If None, uses default config location
+                                    or looks for config in results/{run_id}/config.yml if run_id is provided.
     Returns:
         xarray.Dataset: Dataset with predictions added as a new variable.
     """
     device = set_device()
-    model = load_model(model_path, device)
-    results = run_inference(model, data, batch_size)
+
+    # Determine if input is a run_id or model path
+    if model_path_or_run_id.endswith(".pth") or "/" in model_path_or_run_id:
+        # It's a model path
+        model_path = model_path_or_run_id
+        model = load_model(model_path, device)
+
+        # Load config to get reflength parameter
+        if config_path is None:
+            config = load_config()
+        else:
+            with open(config_path, "r") as f:
+                config = yaml.safe_load(f)
+    else:
+        # It's a run_id
+        run_id = model_path_or_run_id
+        package_path = Path(
+            os.path.abspath(__file__)
+        ).parent.parent.parent.parent.absolute()
+        results_dir = Path(package_path) / "results" / run_id
+
+        # Find the latest model file in the models directory
+        models_dir = results_dir / "models"
+        if not models_dir.exists():
+            raise FileNotFoundError(f"Models directory not found: {models_dir}")
+
+        model_files = list(models_dir.glob("model_epoch_*.pth"))
+        if not model_files:
+            raise FileNotFoundError(f"No model files found in: {models_dir}")
+
+        # Sort by epoch number and get the latest
+        model_files.sort(key=lambda x: int(x.stem.split("_")[-1]))
+        latest_model = model_files[-1]
+        print(f"Using model: {latest_model}")
+
+        model = load_model(str(latest_model), device)
+
+        # Load config from results directory
+        config_file = results_dir / "config.yml"
+        if config_file.exists():
+            with open(config_file, "r") as f:
+                config = yaml.safe_load(f)
+            print(f"Using config from: {config_file}")
+        else:
+            print(f"Config file not found at {config_file}, using default config")
+            config = load_config()
+
+    reflength = config.get("data", {}).get(
+        "reflength", 60
+    )  # Default to 60 if not found
+
+    results = run_inference(model, data, batch_size, reflength)
     data = data.to_dataset(name="TL")  # Convert xarray DataArray to Dataset if needed
     final_results = redistribute_results(results, data)
     return final_results
@@ -244,7 +328,7 @@ def test_cnn_wd():
     # Get repository root directory
     repo_root = Path(__file__).parent.parent.parent.parent
 
-    # Example usage
+    # Example usage with model path
     model_path = (
         repo_root / "data/dummy_model/model_epoch_0.pth"
     )  # Relative path to model
@@ -257,7 +341,7 @@ def test_cnn_wd():
             "cml_id": ["A", "B", "C", "D", "E"],
         },
     )
-    final_dataset = cnn_wd(model_path, data, batch_size=32)
+    final_dataset = cnn_wd(str(model_path), data, batch_size=32)
     import logging
 
     logging.basicConfig(level=logging.INFO)
@@ -269,6 +353,9 @@ def test_cnn_wd():
         logging.info(
             f"Sample predictions:\n{final_dataset['predictions'][:5, :3].values}"
         )
+
+    # Example usage with run_id (this would fail in test but shows the interface)
+    # final_dataset_from_run_id = cnn_wd("2025-01-15_12-34-56abc123", data, batch_size=32)
 
 
 if __name__ == "__main__":
