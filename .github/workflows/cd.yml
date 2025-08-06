@@ -34,7 +34,7 @@ jobs:
   publish:
     needs: [dist]
     name: Publish to PyPI
-    environment: testpypi
+    environment: pypi
     permissions:
       id-token: write
       attestations: write
