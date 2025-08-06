@@ -351,7 +351,7 @@ def test_cnn_wd():
         logging.info(f"Predictions shape: {final_dataset['predictions'].shape}")
         logging.info(f"Predictions dimensions: {final_dataset['predictions'].dims}")
         logging.info(
-            f"Sample predictions:\n{final_dataset['predictions'][:5, :3].values}"
+            f"Sample predictions:\n{final_dataset['predictions'][500:505, :3].values}"
         )
 
     # Example usage with run_id (this would fail in test but shows the interface)
