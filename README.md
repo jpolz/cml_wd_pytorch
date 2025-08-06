@@ -231,14 +231,17 @@ This project is licensed under the BSD 3-Clause License. See [LICENSE](LICENSE) 
 If you use this software in your research, please cite:
 
 ```bibtex
-@article{polz2020rainfall,
-  title={Rainfall event detection in commercial microwave link attenuation data using convolutional neural networks},
-  author={Polz, Julius and Schmidt, Benedikt and Ostermann, Maximilian and Hanslian, David and Kunstmann, Harald},
-  journal={Atmospheric Measurement Techniques},
-  volume={13},
-  number={7},
-  pages={3835--3853},
-  year={2020},
-  publisher={Copernicus GmbH}
-}
+@article{polz_rain_2020,
+	title = {Rain event detection in commercial microwave link attenuation data using convolutional neural networks},
+	volume = {13},
+	issn = {1867-1381},
+	doi = {https://doi.org/10.5194/amt-13-3835-2020},
+	number = {7},
+	urldate = {2020-12-04},
+	journal = {Atmospheric Measurement Techniques},
+	author = {Polz, Julius and Chwala, Christian and Graf, Maximilian and Kunstmann, Harald},
+	month = jul,
+	year = {2020},
+	note = {Publisher: Copernicus GmbH},
+	pages = {3835--3853},
 ```
