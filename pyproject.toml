@@ -38,3 +38,6 @@ addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
 xfail_strict = true
 log_cli_level = "INFO"
 testpaths = ["tests"]
+
+[tool.coverage]
+run.source = ["cml_wd_pytorch"]
