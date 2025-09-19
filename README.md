@@ -89,7 +89,7 @@ from cml_wd_pytorch.train.training_rain_rate import main
 main()
 ```
 
-### 3. Running Inference
+### 3. Running Inference (Work in progress!!!)
 
 ```python
 from cml_wd_pytorch.inference.run_inference import cnn_wd
