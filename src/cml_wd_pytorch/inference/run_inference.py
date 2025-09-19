@@ -32,8 +32,8 @@ def load_config():
     """
     package_path = Path(
         os.path.abspath(__file__)
-    ).parent.parent.parent.parent.absolute()
-    config_path = str(package_path) + "/src/cml_wd_pytorch/config/config.yml"
+    ).parent.parent.absolute()
+    config_path = str(package_path) + "/config/config.yml"
 
     with open(config_path, "r") as f:
         config = yaml.safe_load(f)
