@@ -22,10 +22,8 @@ import xarray as xr
 import yaml
 
 from cml_wd_pytorch.inference.inference_utils import (
-    download_and_cache_model,
-    load_config,
+    get_model,
     list_cached_models,
-    load_model,
     set_device
 )
 
@@ -230,67 +228,9 @@ def cnn_wd(
     """
     device = set_device()
 
-    # Determine input type: URL, local path, or run_id
-    if model_path_or_run_id_or_url.startswith(("http://", "https://")):
-        # It's a URL - download and cache
-        model_path = download_and_cache_model(
-            model_path_or_run_id_or_url, force_download=force_download
-        )
-        model = load_model(str(model_path), device)
-
-        # Load config to get reflength parameter
-        if config_path is None:
-            config = load_config()
-        else:
-            with open(config_path, "r") as f:
-                config = yaml.safe_load(f)
-    elif (
-        model_path_or_run_id_or_url.endswith(".pth")
-        or "/" in model_path_or_run_id_or_url
-    ):
-        # It's a local model path
-        model_path = model_path_or_run_id_or_url
-        model = load_model(model_path, device)
-
-        # Load config to get reflength parameter
-        if config_path is None:
-            config = load_config()
-        else:
-            with open(config_path, "r") as f:
-                config = yaml.safe_load(f)
-    else:
-        # It's a run_id
-        run_id = model_path_or_run_id_or_url
-        package_path = Path(
-            os.path.abspath(__file__)
-        ).parent.parent.parent.parent.absolute()
-        results_dir = Path(package_path) / "results" / run_id
-
-        # Find the latest model file in the models directory
-        models_dir = results_dir / "models"
-        if not models_dir.exists():
-            raise FileNotFoundError(f"Models directory not found: {models_dir}")
-
-        model_files = list(models_dir.glob("model_epoch_*.pth"))
-        if not model_files:
-            raise FileNotFoundError(f"No model files found in: {models_dir}")
-
-        # Sort by epoch number and get the latest
-        model_files.sort(key=lambda x: int(x.stem.split("_")[-1]))
-        latest_model = model_files[-1]
-        print(f"Using model: {latest_model}")
-
-        model = load_model(str(latest_model), device)
-
-        # Load config from results directory
-        config_file = results_dir / "config.yml"
-        if config_file.exists():
-            with open(config_file, "r") as f:
-                config = yaml.safe_load(f)
-            print(f"Using config from: {config_file}")
-        else:
-            print(f"Config file not found at {config_file}, using default config")
-            config = load_config()
+    model, config = get_model(
+        model_path_or_run_id_or_url, config_path, force_download
+    )
 
     reflength = config.get("data", {}).get(
         "reflength", 60
