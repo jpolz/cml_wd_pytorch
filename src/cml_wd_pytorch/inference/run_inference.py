@@ -13,13 +13,9 @@ cml_id are captured in the batch.
 
 """
 
-import os
-from pathlib import Path
-
 import numpy as np
 import torch
 import xarray as xr
-import yaml
 
 from cml_wd_pytorch.inference.inference_utils import (
     get_model,
@@ -226,7 +222,6 @@ def cnn_wd(
     Returns:
         xarray.Dataset: Dataset with predictions added as a new variable.
     """
-    device = set_device()
 
     model, config = get_model(
         model_path_or_run_id_or_url, config_path, force_download
