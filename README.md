@@ -102,15 +102,36 @@ data = xr.open_dataset("your_cml_data.nc")
 # Example: data should be an xarray DataArray of total loss (TL) with dimensions [time, channel_id, cml_id]
 data = data["tl"].transpose("time", "channel_id", "cml_id")
 
-# Run inference using either a model path or a run_id:
+# Run inference using either a model path, run_id, or URL:
+
 # Option 1: Provide the path to a trained model (.pth)
 results = cnn_wd("path/to/trained/model.pth", data)
 
 # Option 2: Provide a run_id (will automatically locate model and config in results/{run_id}/)
-results = cnn_wd(run_id, data)
+results = cnn_wd("2025-08-06_11-03-498c8c7046-872a-464e-b3b6-d6eeaff6a23b", data)
 
-# Optionally, you can specify a custom config path:
-# results = cnn_wd("path/to/trained/model.pth", data, config_path="path/to/config.yml")
+# Option 3: Provide a URL to download and cache the model
+results = cnn_wd("https://github.com/user/repo/releases/download/v1.0/model.pth", data)
+
+# Optional parameters:
+# - config_path: Custom config file path
+# - force_download: Force re-download of cached models
+# results = cnn_wd("https://example.com/model.pth", data, force_download=True)
+```
+
+#### Model Caching
+
+When using URLs, models are automatically cached in `~/.cml_wd_pytorch/models/` to avoid repeated downloads:
+
+```python
+from cml_wd_pytorch.inference.run_inference import list_cached_models, clear_model_cache
+
+# List cached models
+cached_models = list_cached_models()
+print(f"Cached models: {len(cached_models)}")
+
+# Clear cache if needed
+clear_model_cache()
 ```
 
 ## 📊 Data Format for training

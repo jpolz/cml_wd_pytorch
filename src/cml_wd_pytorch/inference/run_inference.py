@@ -21,29 +21,13 @@ import torch
 import xarray as xr
 import yaml
 
-from cml_wd_pytorch.models.cnn import cnn
-
-
-def load_config():
-    """
-    Load configuration from config.yml file.
-    Returns:
-        dict: Configuration dictionary
-    """
-    package_path = Path(
-        os.path.abspath(__file__)
-    ).parent.parent.absolute()
-    config_path = str(package_path) + "/config/config.yml"
-
-    with open(config_path, "r") as f:
-        config = yaml.safe_load(f)
-
-    return config
-
-
-def set_device():
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    return device
+from cml_wd_pytorch.inference.inference_utils import (
+    download_and_cache_model,
+    load_config,
+    list_cached_models,
+    load_model,
+    set_device
+)
 
 
 def predict_batch(model, batch, device):
@@ -54,33 +38,8 @@ def predict_batch(model, batch, device):
     return outputs
 
 
-def load_model(model_path, device):
-    """
-    Loads a PyTorch model from the specified path.
-    Args:
-        model_path (str): Path to the model file.
-        device (torch.device): Device to load the model on.
-    Returns:
-        model (torch.nn.Module): The loaded PyTorch model.
-    """
-    # Create the model instance first
-    model = cnn(
-        final_act="sigmoid"
-    )  # Default to sigmoid, might need to be configurable
-
-    # Load the state dict
-    state_dict = torch.load(model_path, map_location=device)
-    model.load_state_dict(state_dict)
-
-    # Move model to device
-    model.to(device)
-
-    # Add window_size attribute (based on the data preprocessing, it's 180)
-    model.window_size = 180
-
-    return model
-
-
+# TODO: Add unit tests for these functions
+# TODO: move to general utils?
 def rolling_window(timeseries, valid_times, window_size, reflength=60):
     """
     Splits the time series into batches of specified size.
@@ -247,25 +206,50 @@ def redistribute_results(results, data):
     return data.assign(predictions=pred_data)
 
 
-def cnn_wd(model_path_or_run_id, data, batch_size=32, config_path=None):
+def cnn_wd(
+    model_path_or_run_id_or_url,
+    data,
+    batch_size=32,
+    config_path=None,
+    force_download=False,
+):
     """
     Function to run wet/dry inference on input data using a trained CNN model.
     Args:
-        model_path_or_run_id (str): Either a path to the trained PyTorch model or a run_id.
-                                   If run_id, will look for model and config in results/{run_id}/
+        model_path_or_run_id_or_url (str): Either a path to the trained PyTorch model, a run_id,
+                                          or a URL to download the model from.
+                                          If run_id, will look for model and config in results/{run_id}/
+                                          If URL, will download and cache the model locally.
         data (xarray.DataArray): The input data array.
         batch_size (int): The number of samples in each batch.
         config_path (str, optional): Path to config file. If None, uses default config location
                                     or looks for config in results/{run_id}/config.yml if run_id is provided.
+        force_download (bool): Force re-download of model if it's a URL (default: False).
     Returns:
         xarray.Dataset: Dataset with predictions added as a new variable.
     """
     device = set_device()
 
-    # Determine if input is a run_id or model path
-    if model_path_or_run_id.endswith(".pth") or "/" in model_path_or_run_id:
-        # It's a model path
-        model_path = model_path_or_run_id
+    # Determine input type: URL, local path, or run_id
+    if model_path_or_run_id_or_url.startswith(("http://", "https://")):
+        # It's a URL - download and cache
+        model_path = download_and_cache_model(
+            model_path_or_run_id_or_url, force_download=force_download
+        )
+        model = load_model(str(model_path), device)
+
+        # Load config to get reflength parameter
+        if config_path is None:
+            config = load_config()
+        else:
+            with open(config_path, "r") as f:
+                config = yaml.safe_load(f)
+    elif (
+        model_path_or_run_id_or_url.endswith(".pth")
+        or "/" in model_path_or_run_id_or_url
+    ):
+        # It's a local model path
+        model_path = model_path_or_run_id_or_url
         model = load_model(model_path, device)
 
         # Load config to get reflength parameter
@@ -276,7 +260,7 @@ def cnn_wd(model_path_or_run_id, data, batch_size=32, config_path=None):
                 config = yaml.safe_load(f)
     else:
         # It's a run_id
-        run_id = model_path_or_run_id
+        run_id = model_path_or_run_id_or_url
         package_path = Path(
             os.path.abspath(__file__)
         ).parent.parent.parent.parent.absolute()
@@ -356,6 +340,12 @@ def test_cnn_wd():
 
     # Example usage with run_id (this would fail in test but shows the interface)
     # final_dataset_from_run_id = cnn_wd("2025-01-15_12-34-56abc123", data, batch_size=32)
+
+    # Example usage with URL (this would fail in test but shows the interface)
+    # final_dataset_from_url = cnn_wd("https://github.com/jpolz/cml_wd_pytorch/releases/download/v0.1.0/model.pth", data, batch_size=32)
+
+    print("Test completed successfully!")
+    print(f"Cached models: {len(list_cached_models())}")
 
 
 if __name__ == "__main__":
