@@ -6,4 +6,4 @@ from cml_wd_pytorch.inference import run_inference
 #     run_inference.test_cnn_wd()
 
 def foo():
-    pass
+    run_inference.load_config()
