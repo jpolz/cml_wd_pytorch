@@ -21,6 +21,8 @@ dependencies = [
     'ipykernel',
     'scikit-learn',
 ]
+[project.optional-dependencies]
+test = ["pytest", "pytest-cov"]
 
 [project.scripts]
 cml-wd-pytorch = "cml_wd_pytorch:main"
