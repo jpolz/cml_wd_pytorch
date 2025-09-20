@@ -32,7 +32,6 @@ test = [
 [project.scripts]
 cml-wd-pytorch = "cml_wd_pytorch:main"
 test_inference = "cml_wd_pytorch.inference.run_inference:test_cnn_wd"
-run_tests = "run_tests:run_tests"
 
 [build-system]
 requires = ["hatchling"]
