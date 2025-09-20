@@ -22,9 +22,17 @@ dependencies = [
     'scikit-learn',
 ]
 
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "pytest-mock>=3.0",
+]
+
 [project.scripts]
 cml-wd-pytorch = "cml_wd_pytorch:main"
 test_inference = "cml_wd_pytorch.inference.run_inference:test_cnn_wd"
+run_tests = "run_tests:run_tests"
 
 [build-system]
 requires = ["hatchling"]
