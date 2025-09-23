@@ -249,7 +249,7 @@ def test_cnn_wd():
 
     # Example usage with model path
     model_path = (
-        repo_root / "data/dummy_model/model_epoch_0.pth"
+        "https://github.com/jpolz/cml_wd_pytorch/raw/main/data/dummy_model/model_epoch_15.pth"
     )  # Relative path to model
     data = xr.DataArray(
         np.random.rand(1000, 2, 5),

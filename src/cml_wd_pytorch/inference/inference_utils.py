@@ -108,7 +108,13 @@ def load_model(model_path, device):
     )  # Default to sigmoid, might need to be configurable
 
     # Load the state dict
-    state_dict = torch.load(model_path, map_location=device)
+    try:
+        # First try with weights_only=True for security
+        state_dict = torch.load(model_path, map_location=device, weights_only=True)
+    except Exception:
+        # Fall back to weights_only=False for compatibility with older model files
+        # This should only be used with trusted model files
+        state_dict = torch.load(model_path, map_location=device, weights_only=False)
     model.load_state_dict(state_dict)
 
     # Move model to device
