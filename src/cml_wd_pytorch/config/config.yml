@@ -7,8 +7,8 @@ experiment:
 
 # Data parameters
 data:
-  path_train: "/path/to/training/data.zarr"  # Path to the training data in Zarr format
-  path_val: "/path/to/validation/data.zarr"    # Path to the validation data in Zarr format
+  path_train: "/bg/fast/aihydromet/cml_wet_dry_radklim/cml_radklim_v3_2018_2019.zarr"  # Path to the training data in Zarr format
+  path_val: "/bg/fast/aihydromet/cml_wet_dry_radklim/cml_radklim_v3_2020.zarr"    # Path to the validation data in Zarr format
   num_workers: 40
   reflength: 60  # Length of the radar data to consider for rainfall rate or wet label calculation
 
@@ -28,3 +28,20 @@ training:
   ]
   loss_weights: [1,]
   checkpoint_interval: 20
+  
+  # Metrics to track during training
+  metrics:
+    tracked_metrics: [
+      "bce",
+      "acc", 
+      "tpr",
+      "tnr",
+      "acc_cml",
+      "tpr_cml", 
+      "tnr_cml"
+    ]
+  early_stopping:
+    patience: 10
+    min_delta: 0.001
+    mode: "min"  # 'min' for loss, 'max' for accuracy
+    monitor: "bce"  # metric to monitor for early stopping

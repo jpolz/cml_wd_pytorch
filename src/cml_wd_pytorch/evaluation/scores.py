@@ -1,5 +1,9 @@
 import numpy as np
 
+# TODO: Add support for additional metrics like F1-score, precision, recall, AUC-ROC, AUC-PR,
+# Matthews correlation coefficient, Cohen's kappa, etc. Consider using sklearn.metrics or
+# implementing custom metric functions that can be configured via the config file.
+
 
 def acc(preds, ys):
     """
