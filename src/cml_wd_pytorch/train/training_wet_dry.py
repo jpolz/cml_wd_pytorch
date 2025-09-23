@@ -94,8 +94,6 @@ if __name__ == "__main__":
     loss_dict["val_tpr"] = []
     loss_dict["train_tnr"] = []
     loss_dict["val_tnr"] = []
-    # loss_dict['train_bce_cml'] = []
-    # loss_dict['val_bce_cml'] = []
     loss_dict["train_acc_cml"] = []
     loss_dict["val_acc_cml"] = []
     loss_dict["train_tpr_cml"] = []
@@ -111,7 +109,6 @@ if __name__ == "__main__":
         wetcml = []
         for i, batch in tqdm(enumerate(dataloader_train)):
             x = batch[0].to(device).squeeze()  # cml input
-            # y = batch[1].to(device).squeeze() # reference labels
             y = (
                 batch[2]
                 .to(device)
@@ -194,9 +191,6 @@ if __name__ == "__main__":
             f"TNR: {loss_dict['train_tnr'][-1]:.4f}"
         )
 
-        # for key in loss_dict.keys():
-        #     print(f'{key}: {loss_dict[key][-1]:.4f}')
-
         if not config["experiment"]["debug"]:
             # save model
             torch.save(
@@ -219,60 +213,10 @@ if __name__ == "__main__":
                 "Scores saved to: ",
                 str(package_path) + "/results/%s/scores/scores.csv" % run_id,
             )
-
-            # plot loss curves
-            plt.figure(figsize=(10, 5))
-            plt.plot(loss_dict["train_bce"], label="Train TNR", color="blue")
-            plt.plot(loss_dict["val_bce"], label="Validation TNR", color="orange")
-            # add RMSE
-            plt.plot(
-                loss_dict["train_tnr"],
-                label="Train TNR",
-                color="blue",
-                linestyle="dotted",
+            # plot training history
+            from cml_wd_pytorch.train.plot_train import plot_training_history
+            plot_training_history(
+                loss_dict,
+                run_id,
+                package_path,
             )
-            plt.plot(
-                loss_dict["val_tnr"],
-                label="Validation TNR",
-                color="orange",
-                linestyle="dotted",
-            )
-            # add RMSE
-            plt.plot(
-                np.sqrt(loss_dict["train_tpr"]),
-                label="Train TPR",
-                color="blue",
-                linestyle="--",
-            )
-            plt.plot(
-                np.sqrt(loss_dict["val_tpr"]),
-                label="Validation TPR",
-                color="orange",
-                linestyle="--",
-            )
-            # add pearson r
-            plt.plot(loss_dict["train_acc"], label="Train ACC", color="green")
-            plt.plot(loss_dict["val_acc"], label="Validation ACC", color="red")
-            # add cml pearson r
-            plt.plot(
-                loss_dict["train_acc_cml"],
-                label="Train CML acc",
-                color="green",
-                linestyle="--",
-            )
-            plt.plot(
-                loss_dict["val_acc_cml"],
-                label="Validation CML acc",
-                color="red",
-                linestyle="--",
-            )
-            plt.ylim(0, 1)
-            plt.xlabel("Epoch")
-            plt.ylabel("MSE")
-            plt.title("Loss Curves")
-            plt.legend()
-            plt.grid(True)
-            plt.savefig(
-                str(package_path) + "/results/%s/plots/loss_curves.png" % (run_id,)
-            )
-            plt.close()
