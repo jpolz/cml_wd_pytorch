@@ -1,16 +1,84 @@
 """
-Takes an xarray dataarray and runs inference on it using a PyTorch model.
-Workflow:
-1. Load the model.
-2. Prepare the data.
-3. Run inference in batches.
-4. Collect and return predictions.
+CML Wet/Dry Classification Inference Engine.
 
-Dataarray shape is expected to be (time, channels, cml_id).
-Output shape will be (time, channels, cml_id) with predictions for each time step.
-Model input is of shape (batch_size, channels, time_window), where target time and
-cml_id are captured in the batch.
+This module provides the main inference pipeline for Commercial Microwave Link (CML)
+wet/dry classification using trained CNN models. It handles the complete workflow from
+raw xarray data to predictions, including data preprocessing, windowing, batching,
+model inference, and result reconstruction.
 
+Core Functionality:
+    The module implements a sliding window approach for time series classification,
+    where each prediction is made based on a temporal window of CML measurements.
+    The main entry point is the `cnn_wd()` function which provides a high-level
+    interface for running inference on CML data.
+
+Data Flow:
+    1. Input: xarray.DataArray with shape (time, channels, cml_id)
+    2. Preprocessing: Create sliding windows across time dimension
+    3. Batching: Group windows into batches for efficient GPU processing
+    4. Inference: Run CNN model on batches to get predictions
+    5. Reconstruction: Map predictions back to original time/cml_id grid
+    6. Output: xarray.Dataset with original data + predictions
+
+Key Components:
+
+Data Preprocessing:
+    - rolling_window(): Creates sliding windows from time series data
+    - batchify_windows(): Organizes windows across all CML links
+    - build_dataloader(): Creates PyTorch DataLoader for batch processing
+
+Inference Pipeline:
+    - predict_batch(): Runs model inference on a single batch
+    - run_inference(): Orchestrates the complete inference process
+    - redistribute_results(): Maps batch predictions back to original structure
+
+Main Interface:
+    - cnn_wd(): High-level function for wet/dry classification
+    - Supports multiple model sources (local files, URLs, run IDs)
+    - Automatic model downloading and caching
+    - Configurable batch sizes and processing parameters
+
+Data Shapes and Transformations:
+    Input DataArray:    (time, channels, cml_id)
+    Windowed Data:      (n_windows, channels, window_size)
+    Model Input:        (batch_size, channels, window_size)
+    Model Output:       (batch_size, 1) - binary wet/dry predictions
+    Final Output:       (time, cml_id) - predictions mapped to original grid
+
+Configuration:
+    The module uses configuration parameters from YAML files to control:
+    - Window sizes and temporal offsets (reflength parameter)
+    - Model architecture and preprocessing parameters
+    - Batch sizes for efficient memory usage
+
+Example Usage:
+    # Basic usage with local model
+    import xarray as xr
+    data = xr.open_dataarray("cml_data.nc")
+    results = cnn_wd("path/to/model.pth", data)
+
+    # Usage with remote model (auto-download and cache)
+    results = cnn_wd("https://example.com/model.pth", data)
+
+    # Usage with training run ID
+    results = cnn_wd("2025-01-15_12-34-56abc123", data)
+
+    # Access predictions
+    wet_dry_predictions = results['predictions']
+    original_data = results['TL']
+
+Notes:
+    - The module assumes CML data follows specific naming conventions
+    - Window size is typically 180 time steps (3 hours for 1-minute data)
+    - Predictions are binary (0=dry, 1=wet) with sigmoid activation
+    - Missing data is handled gracefully with NaN placeholders
+    - GPU acceleration is used automatically when available
+
+Dependencies:
+    - PyTorch for model inference
+    - xarray for data handling
+    - numpy for numerical operations
+    - Custom inference_utils for model loading and device management
 """
 
 import numpy as np
@@ -20,11 +88,12 @@ import xarray as xr
 from cml_wd_pytorch.inference.inference_utils import (
     get_model,
     list_cached_models,
-    set_device
+    set_device,
 )
 
 
 def predict_batch(model, batch, device):
+    """Run model inference on a single batch."""
     model.eval()
     with torch.no_grad():
         inputs = batch.to(device)
@@ -223,9 +292,7 @@ def cnn_wd(
         xarray.Dataset: Dataset with predictions added as a new variable.
     """
 
-    model, config = get_model(
-        model_path_or_run_id_or_url, config_path, force_download
-    )
+    model, config = get_model(model_path_or_run_id_or_url, config_path, force_download)
 
     reflength = config.get("data", {}).get(
         "reflength", 60
@@ -242,15 +309,9 @@ def test_cnn_wd():
     Test function to run inference with a sample model and data.
     This is for demonstration purposes and should be replaced with actual data and model paths.
     """
-    from pathlib import Path
 
-    # Get repository root directory
-    repo_root = Path(__file__).parent.parent.parent.parent
-
-    # Example usage with model path
-    model_path = (
-        "https://github.com/jpolz/cml_wd_pytorch/raw/main/data/dummy_model/model_epoch_15.pth"
-    )  # Relative path to model
+    # Example usage with model URL
+    model_url = "https://github.com/jpolz/cml_wd_pytorch/raw/main/data/dummy_model/model_epoch_15.pth"  # Relative path to model
     data = xr.DataArray(
         np.random.rand(1000, 2, 5),
         dims=["time", "channels", "cml_id"],
@@ -260,7 +321,7 @@ def test_cnn_wd():
             "cml_id": ["A", "B", "C", "D", "E"],
         },
     )
-    final_dataset = cnn_wd(str(model_path), data, batch_size=32)
+    final_dataset = cnn_wd(str(model_url), data, batch_size=32)
     import logging
 
     logging.basicConfig(level=logging.INFO)
@@ -275,9 +336,6 @@ def test_cnn_wd():
 
     # Example usage with run_id (this would fail in test but shows the interface)
     # final_dataset_from_run_id = cnn_wd("2025-01-15_12-34-56abc123", data, batch_size=32)
-
-    # Example usage with URL (this would fail in test but shows the interface)
-    # final_dataset_from_url = cnn_wd("https://github.com/jpolz/cml_wd_pytorch/releases/download/v0.1.0/model.pth", data, batch_size=32)
 
     print("Test completed successfully!")
     print(f"Cached models: {len(list_cached_models())}")

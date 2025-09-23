@@ -1,3 +1,44 @@
+"""
+Inference utilities for CML wet/dry classification models.
+
+This module provides utility functions for loading, caching, and managing PyTorch models
+used for Commercial Microwave Link (CML) wet/dry classification inference. It supports
+multiple model loading mechanisms including:
+
+- Local file paths (.pth files)
+- Remote URLs with automatic download and caching
+- Run IDs from training results directories
+
+Key Features:
+    - Automatic model downloading and caching from URLs
+    - Smart model loading with fallback for PyTorch compatibility
+    - Configuration management with flexible config loading
+    - Support for different model sources (local, remote, run-based)
+    - GPU/CPU device detection and management
+
+Main Functions:
+    - get_model(): Universal model loader supporting multiple input types
+    - load_model(): Load PyTorch model from local path
+    - download_and_cache_model(): Download and cache models from URLs
+    - load_config(): Load YAML configuration files
+    - set_device(): Auto-detect and set appropriate device (GPU/CPU)
+
+Cache Management:
+    Models downloaded from URLs are cached locally in ~/.cml_wd_pytorch/models/
+    to avoid repeated downloads. Cache can be managed with clear_model_cache()
+    and list_cached_models() functions.
+
+Example Usage:
+    # Load from local path
+    model, config = get_model("path/to/model.pth")
+
+    # Load from URL (with automatic caching)
+    model, config = get_model("https://example.com/model.pth")
+
+    # Load from training run ID
+    model, config = get_model("2025-01-15_12-34-56abc123")
+"""
+
 import hashlib
 import os
 import urllib.request
@@ -10,15 +51,17 @@ from cml_wd_pytorch.models.cnn import cnn
 
 
 def set_device():
+    """Auto-detect and return appropriate device (GPU/CPU)."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     return device
 
 
 def load_config():
     """
-    Load configuration from config.yml file.
+    Load configuration from default config.yml file.
+
     Returns:
-        dict: Configuration dictionary
+        dict: Configuration dictionary.
     """
     package_path = Path(os.path.abspath(__file__)).parent.parent.absolute()
     config_path = str(package_path) + "/config/config.yml"
@@ -95,12 +138,14 @@ def list_cached_models(cache_dir="~/.cml_wd_pytorch/models"):
 
 def load_model(model_path, device):
     """
-    Loads a PyTorch model from the specified path.
+    Load PyTorch model from file path.
+
     Args:
         model_path (str): Path to the model file.
         device (torch.device): Device to load the model on.
+
     Returns:
-        model (torch.nn.Module): The loaded PyTorch model.
+        torch.nn.Module: Loaded PyTorch model.
     """
     # Create the model instance first
     model = cnn(
@@ -127,7 +172,7 @@ def load_model(model_path, device):
 
 
 def _load_config_from_path(config_path):
-    """Helper function to load config from a specific path or use default."""
+    """Load config from specific path or use default."""
     if config_path is None:
         return load_config()
     else:
@@ -163,7 +208,7 @@ def _load_model_from_local_path(model_path, config_path=None):
 
 
 def _load_model_from_run_id(run_id, config_path=None):
-    """Load model from a run_id by finding it in the results directory."""
+    """Load model from training run ID by finding latest model in results directory."""
     device = set_device()
 
     # Find the results directory
