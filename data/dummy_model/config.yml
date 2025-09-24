@@ -2,7 +2,7 @@ data:
   num_workers: 40
   path_train: /bg/fast/aihydromet/cml_wet_dry_radklim/cml_radklim_v3_2018_2019.zarr
   path_val: /bg/fast/aihydromet/cml_wet_dry_radklim/cml_radklim_v3_2020.zarr
-  reflength: 60
+  reflength: 5
 experiment:
   debug: false
   name: NA
