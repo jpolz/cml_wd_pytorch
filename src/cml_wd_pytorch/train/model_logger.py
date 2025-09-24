@@ -21,6 +21,8 @@ from tqdm import tqdm
 
 from cml_wd_pytorch.evaluation.scores import MetricsCalculator
 
+from .plot_train import plot_training_curves_from_csv
+
 
 class BestModelLogger:
     """
@@ -138,6 +140,9 @@ class BestModelLogger:
                 epoch,
                 current_val_loss,
             )
+
+            # Generate training curve plots
+            self.generate_training_plots()
 
             print("=" * 80)
             return True
@@ -298,3 +303,26 @@ class BestModelLogger:
             "best_val_loss": self.best_val_loss,
             "best_model_path": self.best_model_path,
         }
+
+    def generate_training_plots(
+        self, filename: str = "training_curves.png"
+    ) -> Optional[str]:
+        """
+        Generate training curve plots from the saved CSV data.
+
+        Creates a flexible grid plot showing training/validation curves for all
+        metrics saved in scores_essential.csv. Each metric gets its own panel
+        with epochs on x-axis and both train/val versions plotted together.
+
+        Args:
+            filename: Name for the output plot file
+
+        Returns:
+            Path to the saved plot file, or None if plot generation failed
+        """
+        csv_path = (
+            f"{self.package_path}/results/{self.run_id}/scores/scores_essential.csv"
+        )
+        plots_dir = f"{self.package_path}/results/{self.run_id}/plots"
+
+        return plot_training_curves_from_csv(csv_path, plots_dir, filename)

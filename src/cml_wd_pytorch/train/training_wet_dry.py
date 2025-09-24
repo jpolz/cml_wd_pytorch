@@ -220,6 +220,12 @@ if __name__ == "__main__":
         print(
             f"Comprehensive metrics report available at: {str(package_path)}/results/{run_id}/scores/best_epoch_comprehensive_metrics.txt"
         )
+        
+        # Generate final training curve plots
+        plot_path = best_model_logger.generate_training_plots()
+        if plot_path:
+            print(f"Training curves plot saved to: {plot_path}")
+            
     else:
         print("No model was saved (debug mode or no improvement)")
     print("=" * 80)
