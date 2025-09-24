@@ -46,60 +46,114 @@ def _compute_tnr(preds, ys):
     )
 
 
+def prepare_arrays(preds, ys, probabilities=None):
+    """
+    Prepare prediction arrays for metric calculations.
+
+    Args:
+        preds (list or np.array): Predicted labels
+        ys (list or np.array): True labels
+        probabilities (list or np.array, optional): Predicted probabilities
+
+    Returns:
+        tuple: (preds_array, ys_array, probs_array_or_none)
+    """
+    if isinstance(preds, list):
+        preds = np.concatenate(preds)
+    if isinstance(ys, list):
+        ys = np.concatenate(ys)
+
+    probs = None
+    if probabilities is not None:
+        if isinstance(probabilities, list):
+            probs = np.concatenate(probabilities)
+        else:
+            probs = probabilities
+
+    return preds, ys, probs
+
+
 # ============================
 # INDIVIDUAL METRIC FUNCTIONS
 # ============================
 
 
 def compute_accuracy(preds, ys, probabilities=None):
-    """Compute accuracy score."""
+    """Compute accuracy score.
+
+    Measures the fraction of predictions that match the true labels (correct predictions / total predictions).
+    """
     preds, ys, _ = prepare_arrays(preds, ys)
     return accuracy_score(ys, preds)
 
 
 def compute_precision(preds, ys, probabilities=None):
-    """Compute precision score."""
+    """Compute precision score.
+
+    Measures the fraction of positive predictions that are actually positive (TP / (TP + FP)).
+    """
     preds, ys, _ = prepare_arrays(preds, ys)
     return precision_score(ys, preds, zero_division=0)
 
 
 def compute_recall(preds, ys, probabilities=None):
-    """Compute recall score (same as TPR)."""
+    """Compute recall score (same as TPR).
+
+    Measures the fraction of actual positives that were correctly predicted (TP / (TP + FN)).
+    """
     preds, ys, _ = prepare_arrays(preds, ys)
     return recall_score(ys, preds, zero_division=0)
 
 
 def compute_f1_score(preds, ys, probabilities=None):
-    """Compute F1 score."""
+    """Compute F1 score.
+
+    Harmonic mean of precision and recall, balancing both metrics (2 * precision * recall / (precision + recall)).
+    """
     preds, ys, _ = prepare_arrays(preds, ys)
     return f1_score(ys, preds, zero_division=0)
 
 
 def compute_specificity(preds, ys, probabilities=None):
-    """Compute specificity (TNR)."""
+    """Compute specificity (TNR).
+
+    Measures the fraction of actual negatives that were correctly predicted (TN / (TN + FP)).
+    """
     return _compute_tnr(preds, ys)
 
 
 def compute_balanced_accuracy(preds, ys, probabilities=None):
-    """Compute balanced accuracy."""
+    """Compute balanced accuracy.
+
+    Average of recall for each class, adjusting for class imbalance ((sensitivity + specificity) / 2).
+    """
     preds, ys, _ = prepare_arrays(preds, ys)
     return balanced_accuracy_score(ys, preds)
 
 
 def compute_jaccard_index(preds, ys, probabilities=None):
-    """Compute Jaccard index."""
+    """Compute Jaccard index (IoU).
+
+    Measures similarity between predicted and true sets, intersection over union (TP / (TP + FP + FN)).
+    """
     preds, ys, _ = prepare_arrays(preds, ys)
     return jaccard_score(ys, preds, zero_division=0)
 
 
 def compute_matthews_corrcoef(preds, ys, probabilities=None):
-    """Compute Matthews correlation coefficient."""
+    """Compute Matthews correlation coefficient.
+
+    Correlation coefficient between observed and predicted classifications, ranging from -1 to 1.
+    """
     preds, ys, _ = prepare_arrays(preds, ys)
     return matthews_corrcoef(ys, preds)
 
 
 def compute_cohen_kappa(preds, ys, probabilities=None):
-    """Compute Cohen's kappa."""
+    """Compute Cohen's kappa.
+
+    Measures inter-rater agreement, accounting for agreement occurring by chance (0 = chance, 1 = perfect).
+    """
     preds, ys, _ = prepare_arrays(preds, ys)
     return cohen_kappa_score(ys, preds)
 
@@ -142,67 +196,100 @@ def _get_confusion_matrix_components(preds, ys):
 
 
 def compute_true_positives(preds, ys, probabilities=None):
-    """Compute true positives count."""
+    """Compute true positives count.
+
+    Number of correctly predicted positive instances (wet conditions correctly identified as wet).
+    """
     tn, fp, fn, tp = _get_confusion_matrix_components(preds, ys)
     return tp
 
 
 def compute_false_positives(preds, ys, probabilities=None):
-    """Compute false positives count."""
+    """Compute false positives count.
+
+    Number of incorrectly predicted positive instances (dry conditions incorrectly identified as wet).
+    """
     tn, fp, fn, tp = _get_confusion_matrix_components(preds, ys)
     return fp
 
 
 def compute_true_negatives(preds, ys, probabilities=None):
-    """Compute true negatives count."""
+    """Compute true negatives count.
+
+    Number of correctly predicted negative instances (dry conditions correctly identified as dry).
+    """
     tn, fp, fn, tp = _get_confusion_matrix_components(preds, ys)
     return tn
 
 
 def compute_false_negatives(preds, ys, probabilities=None):
-    """Compute false negatives count."""
+    """Compute false negatives count.
+
+    Number of incorrectly predicted negative instances (wet conditions incorrectly identified as dry).
+    """
     tn, fp, fn, tp = _get_confusion_matrix_components(preds, ys)
     return fn
 
 
 def compute_positive_predictive_value(preds, ys, probabilities=None):
-    """Compute positive predictive value (precision)."""
+    """Compute positive predictive value (precision).
+
+    Proportion of predicted positive instances that are actually positive (TP / (TP + FP)).
+    """
     tn, fp, fn, tp = _get_confusion_matrix_components(preds, ys)
     return tp / (tp + fp) if (tp + fp) > 0 else 0
 
 
 def compute_negative_predictive_value(preds, ys, probabilities=None):
-    """Compute negative predictive value."""
+    """Compute negative predictive value.
+
+    Proportion of predicted negative instances that are actually negative (TN / (TN + FN)).
+    """
     tn, fp, fn, tp = _get_confusion_matrix_components(preds, ys)
     return tn / (tn + fn) if (tn + fn) > 0 else 0
 
 
 def compute_false_positive_rate(preds, ys, probabilities=None):
-    """Compute false positive rate."""
+    """Compute false positive rate.
+
+    Proportion of actual negative instances incorrectly classified as positive (FP / (FP + TN)).
+    """
     tn, fp, fn, tp = _get_confusion_matrix_components(preds, ys)
     return fp / (fp + tn) if (fp + tn) > 0 else 0
 
 
 def compute_false_negative_rate(preds, ys, probabilities=None):
-    """Compute false negative rate."""
+    """Compute false negative rate.
+
+    Proportion of actual positive instances incorrectly classified as negative (FN / (FN + TP)).
+    """
     tn, fp, fn, tp = _get_confusion_matrix_components(preds, ys)
     return fn / (fn + tp) if (fn + tp) > 0 else 0
 
 
 def compute_false_discovery_rate(preds, ys, probabilities=None):
-    """Compute false discovery rate."""
+    """Compute false discovery rate.
+
+    Proportion of predicted positive instances that are actually negative (FP / (FP + TP)).
+    """
     tn, fp, fn, tp = _get_confusion_matrix_components(preds, ys)
     return fp / (fp + tp) if (fp + tp) > 0 else 0
 
 
 def compute_false_omission_rate(preds, ys, probabilities=None):
-    """Compute false omission rate."""
+    """Compute false omission rate.
+
+    Proportion of predicted negative instances that are actually positive (FN / (FN + TN)).
+    """
     tn, fp, fn, tp = _get_confusion_matrix_components(preds, ys)
     return fn / (fn + tn) if (fn + tn) > 0 else 0
 
 
 def compute_chi2_test(preds, ys, probabilities=None):
-    """Compute chi-square test statistics."""
+    """Compute chi-square test statistics.
+
+    Tests independence between predicted and actual classifications using chi-square test.
+    """
     preds, ys, _ = prepare_arrays(preds, ys)
     try:
         contingency_table = confusion_matrix(ys, preds, labels=[0, 1])
@@ -213,17 +300,26 @@ def compute_chi2_test(preds, ys, probabilities=None):
 
 
 def compute_chi2_statistic(preds, ys, probabilities=None):
-    """Compute chi-square statistic."""
+    """Compute chi-square statistic.
+
+    Chi-square test statistic measuring association between predicted and actual classifications.
+    """
     return compute_chi2_test(preds, ys)["chi2_statistic"]
 
 
 def compute_chi2_p_value(preds, ys, probabilities=None):
-    """Compute chi-square p-value."""
+    """Compute chi-square p-value.
+
+    P-value from chi-square test indicating significance of association between predictions and truth.
+    """
     return compute_chi2_test(preds, ys)["chi2_p_value"]
 
 
 def compute_fisher_exact_p_value(preds, ys, probabilities=None):
-    """Compute Fisher's exact test p-value."""
+    """Compute Fisher's exact test p-value.
+
+    Exact test for independence in 2x2 contingency tables, more accurate than chi-square for small samples.
+    """
     preds, ys, _ = prepare_arrays(preds, ys)
     try:
         contingency_table = confusion_matrix(ys, preds, labels=[0, 1])
@@ -237,7 +333,10 @@ def compute_fisher_exact_p_value(preds, ys, probabilities=None):
 
 
 def compute_roc_auc(preds, ys, probabilities=None):
-    """Compute ROC AUC score."""
+    """Compute ROC AUC score.
+
+    Area under the Receiver Operating Characteristic curve, measures model's ability to distinguish classes.
+    """
     if probabilities is None:
         raise ValueError("Probabilities required for ROC AUC")
     _, ys, probs = prepare_arrays(preds, ys, probabilities)
@@ -249,7 +348,10 @@ def compute_roc_auc(preds, ys, probabilities=None):
 
 
 def compute_average_precision(preds, ys, probabilities=None):
-    """Compute average precision (PR AUC)."""
+    """Compute average precision (PR AUC).
+
+    Area under the Precision-Recall curve, measures performance across all probability thresholds.
+    """
     if probabilities is None:
         raise ValueError("Probabilities required for average precision")
     _, ys, probs = prepare_arrays(preds, ys, probabilities)
@@ -261,7 +363,10 @@ def compute_average_precision(preds, ys, probabilities=None):
 
 
 def compute_brier_score(preds, ys, probabilities=None):
-    """Compute Brier score."""
+    """Compute Brier score.
+
+    Mean squared difference between predicted probabilities and actual outcomes (lower is better).
+    """
     if probabilities is None:
         raise ValueError("Probabilities required for Brier score")
     _, ys, probs = prepare_arrays(preds, ys, probabilities)
@@ -273,7 +378,10 @@ def compute_brier_score(preds, ys, probabilities=None):
 
 
 def compute_log_loss(preds, ys, probabilities=None):
-    """Compute log loss."""
+    """Compute log loss.
+
+    Logarithmic loss measuring probability calibration quality (lower is better, penalizes confident wrong predictions).
+    """
     if probabilities is None:
         raise ValueError("Probabilities required for log loss")
     _, ys, probs = prepare_arrays(preds, ys, probabilities)
@@ -286,7 +394,10 @@ def compute_log_loss(preds, ys, probabilities=None):
 
 
 def compute_roc_curve(preds, ys, probabilities=None):
-    """Compute ROC curve data."""
+    """Compute ROC curve data.
+
+    Returns ROC curve coordinates (FPR, TPR) across all probability thresholds for visualization.
+    """
     if probabilities is None:
         raise ValueError("Probabilities required for ROC curve")
     _, ys, probs = prepare_arrays(preds, ys, probabilities)
@@ -302,7 +413,10 @@ def compute_roc_curve(preds, ys, probabilities=None):
 
 
 def compute_pr_curve(preds, ys, probabilities=None):
-    """Compute Precision-Recall curve data."""
+    """Compute Precision-Recall curve data.
+
+    Returns Precision-Recall curve coordinates across all probability thresholds for visualization.
+    """
     if probabilities is None:
         raise ValueError("Probabilities required for PR curve")
     _, ys, probs = prepare_arrays(preds, ys, probabilities)
@@ -318,55 +432,66 @@ def compute_pr_curve(preds, ys, probabilities=None):
 
 
 def compute_critical_success_index(preds, ys, probabilities=None):
-    """Compute Critical Success Index (Threat Score)."""
+    """Compute Critical Success Index (Threat Score).
+
+    Meteorological metric measuring forecast skill for binary events (TP / (TP + FP + FN)).
+    """
     tn, fp, fn, tp = _get_confusion_matrix_components(preds, ys)
     return tp / (tp + fp + fn) if (tp + fp + fn) > 0 else 0
 
 
 def compute_hit_rate(preds, ys, probabilities=None):
-    """Compute Hit Rate (Probability of Detection)."""
+    """Compute Hit Rate (Probability of Detection).
+
+    Proportion of observed events that were correctly predicted (TP / (TP + FN)).
+    """
     tn, fp, fn, tp = _get_confusion_matrix_components(preds, ys)
     return tp / (tp + fn) if (tp + fn) > 0 else 0
 
 
 def compute_false_alarm_rate(preds, ys, probabilities=None):
-    """Compute False Alarm Rate."""
+    """Compute False Alarm Rate.
+
+    Proportion of non-events that were incorrectly predicted as events (FP / (FP + TN)).
+    """
     tn, fp, fn, tp = _get_confusion_matrix_components(preds, ys)
     return fp / (fp + tn) if (fp + tn) > 0 else 0
 
 
 def compute_false_alarm_ratio(preds, ys, probabilities=None):
-    """Compute False Alarm Ratio."""
+    """Compute False Alarm Ratio.
+
+    Proportion of predicted events that did not occur (FP / (FP + TP)).
+    """
     tn, fp, fn, tp = _get_confusion_matrix_components(preds, ys)
     return fp / (fp + tp) if (fp + tp) > 0 else 0
 
 
 def compute_bias_score(preds, ys, probabilities=None):
-    """Compute Bias Score (frequency bias)."""
+    """Compute Bias Score (frequency bias).
+
+    Ratio of predicted to observed event frequencies, indicates over/under-forecasting (1 = perfect).
+    """
     tn, fp, fn, tp = _get_confusion_matrix_components(preds, ys)
     return (tp + fp) / (tp + fn) if (tp + fn) > 0 else 0
 
 
 def compute_equitable_threat_score(preds, ys, probabilities=None):
-    """Compute Equitable Threat Score."""
+    """Compute Equitable Threat Score.
+
+    Threat score adjusted for hits expected by chance, ranges from -1/3 to 1 (0 = no skill).
+    """
     tn, fp, fn, tp = _get_confusion_matrix_components(preds, ys)
     return _compute_equitable_threat_score(tp, fp, fn, tn)
 
 
 def compute_heidke_skill_score(preds, ys, probabilities=None):
-    """Compute Heidke Skill Score."""
+    """Compute Heidke Skill Score.
+
+    Accuracy adjusted for chance agreement, ranges from -1 to 1 (0 = no skill, 1 = perfect).
+    """
     tn, fp, fn, tp = _get_confusion_matrix_components(preds, ys)
     return _compute_heidke_skill_score(tp, fp, fn, tn)
-
-
-def compute_tpr(preds, ys, probabilities=None):
-    """Compute True Positive Rate (legacy)."""
-    return _compute_tpr(preds, ys)
-
-
-def compute_tnr(preds, ys, probabilities=None):
-    """Compute True Negative Rate (legacy)."""
-    return _compute_tnr(preds, ys)
 
 
 # ============================
@@ -414,299 +539,7 @@ METRIC_FUNCTIONS = {
     "bias_score": compute_bias_score,
     "equitable_threat_score": compute_equitable_threat_score,
     "heidke_skill_score": compute_heidke_skill_score,
-    # Legacy metrics
-    "tpr": compute_tpr,
-    "tnr": compute_tnr,
 }
-
-
-# ============================
-# GROUPED COMPUTATION FUNCTIONS (for backwards compatibility)
-# ============================
-
-
-def prepare_arrays(preds, ys, probabilities=None):
-    """
-    Prepare prediction arrays for metric calculations.
-
-    Args:
-        preds (list or np.array): Predicted labels
-        ys (list or np.array): True labels
-        probabilities (list or np.array, optional): Predicted probabilities
-
-    Returns:
-        tuple: (preds_array, ys_array, probs_array_or_none)
-    """
-    if isinstance(preds, list):
-        preds = np.concatenate(preds)
-    if isinstance(ys, list):
-        ys = np.concatenate(ys)
-
-    probs = None
-    if probabilities is not None:
-        if isinstance(probabilities, list):
-            probs = np.concatenate(probabilities)
-        else:
-            probs = probabilities
-
-    return preds, ys, probs
-
-
-def compute_basic_metrics(preds, ys):
-    """
-    Compute basic classification metrics using sklearn.
-
-    Args:
-        preds: Predicted labels
-        ys: True labels
-
-    Returns:
-        dict: Dictionary of metric values
-    """
-    preds, ys, _ = prepare_arrays(preds, ys)
-
-    return {
-        "accuracy": accuracy_score(ys, preds),
-        "precision": precision_score(ys, preds, zero_division=0),
-        "recall": recall_score(ys, preds, zero_division=0),  # Same as TPR
-        "f1_score": f1_score(ys, preds, zero_division=0),
-        "specificity": _compute_tnr(preds, ys),  # TNR using helper function
-        "balanced_accuracy": balanced_accuracy_score(ys, preds),
-        "jaccard_index": jaccard_score(ys, preds, zero_division=0),
-    }
-
-
-def compute_advanced_metrics(preds, ys):
-    """
-    Compute advanced classification metrics.
-
-    Args:
-        preds: Predicted labels
-        ys: True labels
-
-    Returns:
-        dict: Dictionary of metric values
-    """
-    preds, ys, _ = prepare_arrays(preds, ys)
-
-    metrics = {
-        "matthews_corrcoef": matthews_corrcoef(ys, preds),
-        "cohen_kappa": cohen_kappa_score(ys, preds),
-    }
-
-    # Compute confusion matrix components
-    tn, fp, fn, tp = confusion_matrix(ys, preds, labels=[0, 1]).ravel()
-
-    metrics.update(
-        {
-            "true_positives": int(tp),
-            "false_positives": int(fp),
-            "true_negatives": int(tn),
-            "false_negatives": int(fn),
-            "positive_predictive_value": tp / (tp + fp)
-            if (tp + fp) > 0
-            else 0,  # Precision
-            "negative_predictive_value": tn / (tn + fn) if (tn + fn) > 0 else 0,
-            "false_positive_rate": fp / (fp + tn) if (fp + tn) > 0 else 0,
-            "false_negative_rate": fn / (fn + tp) if (fn + tp) > 0 else 0,
-            "false_discovery_rate": fp / (fp + tp) if (fp + tp) > 0 else 0,
-            "false_omission_rate": fn / (fn + tn) if (fn + tn) > 0 else 0,
-        }
-    )
-
-    # Statistical significance tests
-    try:
-        contingency_table = confusion_matrix(ys, preds, labels=[0, 1])
-        chi2_stat, chi2_p_value, _, _ = chi2_contingency(contingency_table)
-        metrics["chi2_statistic"] = chi2_stat
-        metrics["chi2_p_value"] = chi2_p_value
-
-        # Fisher's exact test for small samples
-        if np.sum(contingency_table) < 1000:  # Use Fisher's exact for smaller samples
-            _, fisher_p_value = fisher_exact(contingency_table)
-            metrics["fisher_exact_p_value"] = fisher_p_value
-
-    except (ValueError, ZeroDivisionError):
-        metrics["chi2_statistic"] = np.nan
-        metrics["chi2_p_value"] = np.nan
-        metrics["fisher_exact_p_value"] = np.nan
-
-    return metrics
-
-
-def compute_probabilistic_metrics(probabilities, ys):
-    """
-    Compute metrics that require probability estimates.
-
-    Args:
-        probabilities: Predicted probabilities for positive class
-        ys: True labels
-
-    Returns:
-        dict: Dictionary of metric values
-    """
-    _, ys, probs = prepare_arrays(None, ys, probabilities)
-
-    if probs is None:
-        return {}
-
-    try:
-        metrics = {
-            "roc_auc": roc_auc_score(ys, probs),
-            "average_precision": average_precision_score(ys, probs),
-            "brier_score": brier_score_loss(ys, probs),
-        }
-
-        # Convert probabilities to binary predictions for log loss
-        # Avoid log(0) by clipping probabilities
-        probs_clipped = np.clip(probs, 1e-15, 1 - 1e-15)
-        metrics["log_loss"] = log_loss(ys, probs_clipped)
-
-    except (ValueError, TypeError) as e:
-        warnings.warn(f"Error computing probabilistic metrics: {e}")
-        metrics = {
-            "roc_auc": np.nan,
-            "average_precision": np.nan,
-            "brier_score": np.nan,
-            "log_loss": np.nan,
-        }
-
-    return metrics
-
-
-def compute_threshold_metrics(probabilities, ys, thresholds=None):
-    """
-    Compute metrics at different thresholds for ROC and PR curves.
-
-    Args:
-        probabilities: Predicted probabilities
-        ys: True labels
-        thresholds: Custom thresholds (optional)
-
-    Returns:
-        dict: ROC and PR curve data
-    """
-    _, ys, probs = prepare_arrays(None, ys, probabilities)
-
-    if probs is None:
-        return {}
-
-    try:
-        # ROC curve
-        fpr, tpr_vals, roc_thresholds = roc_curve(ys, probs)
-
-        # Precision-Recall curve
-        precision_vals, recall_vals, pr_thresholds = precision_recall_curve(ys, probs)
-
-        return {
-            "roc_curve": {
-                "fpr": fpr.tolist(),
-                "tpr": tpr_vals.tolist(),
-                "thresholds": roc_thresholds.tolist(),
-            },
-            "pr_curve": {
-                "precision": precision_vals.tolist(),
-                "recall": recall_vals.tolist(),
-                "thresholds": pr_thresholds.tolist(),
-            },
-        }
-    except (ValueError, TypeError):
-        return {}
-
-
-def compute_all_metrics(preds, ys, probabilities=None, include_curves=False):
-    """
-    Compute all available metrics for binary classification.
-
-    Args:
-        preds: Predicted labels
-        ys: True labels
-        probabilities: Predicted probabilities (optional)
-        include_curves: Whether to include ROC/PR curve data
-
-    Returns:
-        dict: Comprehensive metrics dictionary
-    """
-    # Combine all metrics
-    metrics = {}
-
-    # Basic metrics
-    metrics.update(compute_basic_metrics(preds, ys))
-
-    # Advanced metrics
-    metrics.update(compute_advanced_metrics(preds, ys))
-
-    # Probabilistic metrics (if probabilities provided)
-    if probabilities is not None:
-        metrics.update(compute_probabilistic_metrics(probabilities, ys))
-
-        # Curve data (if requested)
-        if include_curves:
-            metrics.update(compute_threshold_metrics(probabilities, ys))
-
-    return metrics
-
-
-def get_classification_report(preds, ys, target_names=None):
-    """
-    Generate a detailed classification report.
-
-    Args:
-        preds: Predicted labels
-        ys: True labels
-        target_names: Names for the classes
-
-    Returns:
-        str: Formatted classification report
-    """
-    preds, ys, _ = prepare_arrays(preds, ys)
-
-    if target_names is None:
-        target_names = ["Dry", "Wet"]  # For wet/dry classification
-
-    return classification_report(ys, preds, target_names=target_names)
-
-
-# ============================
-# METEOROLOGICAL SPECIFIC METRICS
-# ============================
-
-
-def compute_meteorological_metrics(preds, ys, probabilities=None):
-    """
-    Compute metrics specifically relevant for meteorological/hydrological applications.
-
-    Args:
-        preds: Predicted labels
-        ys: True labels
-        probabilities: Predicted probabilities (optional)
-
-    Returns:
-        dict: Meteorological metrics
-    """
-    preds, ys, _ = prepare_arrays(preds, ys)
-
-    # Get confusion matrix components
-    tn, fp, fn, tp = confusion_matrix(ys, preds, labels=[0, 1]).ravel()
-
-    metrics = {
-        # Critical Success Index (Threat Score) - important for precipitation
-        "critical_success_index": tp / (tp + fp + fn) if (tp + fp + fn) > 0 else 0,
-        # Hit Rate (Probability of Detection) - same as recall/sensitivity
-        "hit_rate": tp / (tp + fn) if (tp + fn) > 0 else 0,
-        # False Alarm Rate
-        "false_alarm_rate": fp / (fp + tn) if (fp + tn) > 0 else 0,
-        # False Alarm Ratio
-        "false_alarm_ratio": fp / (fp + tp) if (fp + tp) > 0 else 0,
-        # Bias Score (frequency bias)
-        "bias_score": (tp + fp) / (tp + fn) if (tp + fn) > 0 else 0,
-        # Equitable Threat Score
-        "equitable_threat_score": _compute_equitable_threat_score(tp, fp, fn, tn),
-        # Heidke Skill Score (similar to Cohen's kappa)
-        "heidke_skill_score": _compute_heidke_skill_score(tp, fp, fn, tn),
-    }
-
-    return metrics
 
 
 def _compute_equitable_threat_score(tp, fp, fn, tn):
@@ -786,9 +619,6 @@ class MetricsCalculator:
 
     CURVE_METRICS = ["roc_curve", "pr_curve"]
 
-    # Legacy metrics (for backwards compatibility)
-    LEGACY_METRICS = ["tpr", "tnr"]
-
     def __init__(self, metrics=None, include_curves=False):
         """
         Initialize the MetricsCalculator with specified metrics.
@@ -828,7 +658,6 @@ class MetricsCalculator:
             + cls.PROBABILISTIC_METRICS
             + cls.METEOROLOGICAL_METRICS
             + cls.CURVE_METRICS
-            + cls.LEGACY_METRICS
         )
 
     @classmethod
@@ -845,7 +674,6 @@ class MetricsCalculator:
             "probabilistic": cls.PROBABILISTIC_METRICS,
             "meteorological": cls.METEOROLOGICAL_METRICS,
             "curves": cls.CURVE_METRICS,
-            "legacy": cls.LEGACY_METRICS,
         }
 
     def requires_probabilities(self):
@@ -940,7 +768,7 @@ class MetricsCalculator:
         ):
             report.append("\nDETAILED CLASSIFICATION REPORT:")
             report.append("-" * 40)
-            report.append(get_classification_report(preds, ys))
+            report.append(classification_report(ys, preds, target_names=["Dry", "Wet"]))
 
         return "\n".join(report)
 
