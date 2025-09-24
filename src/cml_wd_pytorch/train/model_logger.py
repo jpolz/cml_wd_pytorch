@@ -15,6 +15,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
+import pandas as pd
 import torch
 from tqdm import tqdm
 
@@ -49,6 +50,32 @@ class BestModelLogger:
         self.best_epoch = -1
         self.best_model_path: Optional[str] = None
 
+        # Track essential metrics across epochs
+        self.essential_metrics_history = {"epoch": [], "train_bce": [], "val_bce": []}
+
+    def log_losses(self, epoch: int, train_bce: float, val_bce: float):
+        """
+        Log training and validation losses and save to CSV.
+
+        Args:
+            epoch: Current training epoch
+            train_bce: Training BCE loss
+            val_bce: Validation BCE loss
+        """
+        # Update metrics history
+        self.essential_metrics_history["epoch"].append(epoch)
+        self.essential_metrics_history["train_bce"].append(train_bce)
+        self.essential_metrics_history["val_bce"].append(val_bce)
+
+        # Save to CSV file
+        df_essential = pd.DataFrame(self.essential_metrics_history)
+        essential_metrics_path = (
+            f"{self.package_path}/results/{self.run_id}/scores/scores_essential.csv"
+        )
+        df_essential.to_csv(essential_metrics_path, index=False)
+
+        print(f"Essential scores saved to: {essential_metrics_path}")
+
     def check_and_update_best_model(
         self,
         model: torch.nn.Module,
@@ -58,9 +85,11 @@ class BestModelLogger:
         config: Dict[str, Any],
         epoch: int,
         current_val_loss: float,
+        train_bce: float,
     ) -> bool:
         """
         Check if current model is the best so far and update if necessary.
+        Also logs essential metrics for every epoch.
 
         Args:
             model: PyTorch model to evaluate
@@ -70,10 +99,14 @@ class BestModelLogger:
             config: Configuration dictionary
             epoch: Current training epoch
             current_val_loss: Current validation loss
+            train_bce: Training BCE loss
 
         Returns:
             bool: True if this was a new best model, False otherwise
         """
+        # Always log essential metrics for every epoch
+        self.log_losses(epoch, train_bce, current_val_loss)
+
         if current_val_loss < self.best_val_loss:
             print(
                 f"\n🎯 NEW BEST MODEL! Validation loss improved from {self.best_val_loss:.4f} to {current_val_loss:.4f}"

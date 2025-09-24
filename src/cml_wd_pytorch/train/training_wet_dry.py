@@ -5,7 +5,6 @@ from datetime import datetime
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import torch
 import yaml
 from tqdm import tqdm
@@ -150,7 +149,6 @@ if __name__ == "__main__":
         comprehensive_metrics=comprehensive_metrics,
     )
 
-
     ########################
     # start training loop  #
     ########################
@@ -188,7 +186,7 @@ if __name__ == "__main__":
         print(f"Epoch {epoch}: Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
 
         if not config["experiment"]["debug"]:
-            # Check if this is the best model so far and handle comprehensive metrics
+            # Check if this is the best model so far and handle all metrics logging
             current_val_loss = val_loss
             best_model_logger.check_and_update_best_model(
                 model=model,
@@ -198,21 +196,7 @@ if __name__ == "__main__":
                 config=config,
                 epoch=epoch,
                 current_val_loss=current_val_loss,
-            )
-
-            # Always save essential metrics only
-            essential_metrics = {
-                "epoch": list(range(epoch + 1)),
-                "train_bce": current_metrics.get("train_bce", []),
-                "val_bce": current_metrics.get("val_bce", []),
-            }
-            df_essential = pd.DataFrame(essential_metrics)
-            df_essential.to_csv(
-                str(package_path) + "/results/%s/scores/scores_essential.csv" % run_id,
-                index=False,
-            )
-            print(
-                f"Essential scores saved to: {str(package_path)}/results/{run_id}/scores/scores_essential.csv"
+                train_bce=train_loss,
             )
 
         # early stopping check
