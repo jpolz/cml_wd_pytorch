@@ -40,14 +40,14 @@ Example Usage:
 """
 
 import hashlib
+import json
 import os
 import urllib.request
 from pathlib import Path
 
 import torch
+import torch.export
 import yaml
-
-from cml_wd_pytorch.models.cnn import cnn
 
 
 def set_device():
@@ -115,6 +115,10 @@ def clear_model_cache(cache_dir="~/.cml_wd_pytorch/models"):
     if cache_dir.exists():
         for file in cache_dir.glob("*.pth"):
             file.unlink()
+        for file in cache_dir.glob("*.pt2"):
+            file.unlink()
+        for file in cache_dir.glob("*.json"):
+            file.unlink()
         print(f"Cleared cache at {cache_dir}")
     else:
         print(f"Cache directory {cache_dir} does not exist")
@@ -128,11 +132,12 @@ def list_cached_models(cache_dir="~/.cml_wd_pytorch/models"):
         cache_dir (str): Cache directory to list
 
     Returns:
-        list: List of cached model files
+        list: List of cached model files (.pth and .pt2)
     """
     cache_dir = Path(cache_dir).expanduser()
     if cache_dir.exists():
-        return list(cache_dir.glob("*.pth"))
+        models = list(cache_dir.glob("*.pth")) + list(cache_dir.glob("*.pt2"))
+        return models
     return []
 
 
@@ -140,35 +145,67 @@ def load_model(model_path, device):
     """
     Load PyTorch model from file path.
 
+    Supports both traditional .pth files and exported .pt2 files.
+    For .pt2 files, no dependency on original model code is needed.
+
     Args:
-        model_path (str): Path to the model file.
+        model_path (str): Path to the model file (.pth or .pt2).
         device (torch.device): Device to load the model on.
 
     Returns:
         torch.nn.Module: Loaded PyTorch model.
     """
-    # Create the model instance first
-    model = cnn(
-        final_act="sigmoid"
-    )  # Default to sigmoid, might need to be configurable
+    model_path = Path(model_path)
 
-    # Load the state dict
-    try:
-        # First try with weights_only=True for security
-        state_dict = torch.load(model_path, map_location=device, weights_only=True)
-    except Exception:
-        # Fall back to weights_only=False for compatibility with older model files
-        # This should only be used with trusted model files
-        state_dict = torch.load(model_path, map_location=device, weights_only=False)
-    model.load_state_dict(state_dict)
+    if model_path.suffix == ".pt2":
+        # Load exported model using torch.export
+        try:
+            exported_program = torch.export.load(str(model_path))
+            model = exported_program.module()
 
-    # Move model to device
-    model.to(device)
+            # Move model to the specified device
+            model.to(device)
 
-    # Add window_size attribute (based on the data preprocessing, it's 180)
-    model.window_size = 180
+            # Add window_size attribute (based on the data preprocessing, it's 180)
+            model.window_size = 180
+            print(f"✅ Loaded exported model from: {model_path}")
+            return model
 
-    return model
+        except Exception as e:
+            raise RuntimeError(f"Failed to load exported model {model_path}: {e}")
+
+    else:
+        # Traditional .pth loading - requires importing the model class
+        try:
+            from cml_wd_pytorch.models.cnn import cnn
+        except ImportError as e:
+            raise ImportError(
+                f"Cannot load .pth file {model_path} because model class is not available. "
+                f"Use .pt2 exported models for dependency-free loading. Error: {e}"
+            )
+
+        # Create the model instance first
+        model = cnn(
+            final_act="sigmoid"
+        )  # Default to sigmoid, might need to be configurable
+
+        # Load the state dict
+        try:
+            # First try with weights_only=True for security
+            state_dict = torch.load(model_path, map_location=device, weights_only=True)
+        except Exception:
+            # Fall back to weights_only=False for compatibility with older model files
+            # This should only be used with trusted model files
+            state_dict = torch.load(model_path, map_location=device, weights_only=False)
+        model.load_state_dict(state_dict)
+
+        # Move model to device
+        model.to(device)
+
+        # Add window_size attribute (based on the data preprocessing, it's 180)
+        model.window_size = 180
+        print(f"✅ Loaded traditional model from: {model_path}")
+        return model
 
 
 def _load_config_from_path(config_path):
@@ -176,8 +213,12 @@ def _load_config_from_path(config_path):
     if config_path is None:
         return load_config()
     else:
+        config_path = Path(config_path)
         with open(config_path, "r") as f:
-            return yaml.safe_load(f)
+            if config_path.suffix.lower() == ".json":
+                return json.load(f)
+            else:
+                return yaml.safe_load(f)
 
 
 def _load_model_from_url(model_url, config_path=None, force_download=False):
@@ -197,18 +238,29 @@ def _load_model_from_url(model_url, config_path=None, force_download=False):
 def _load_model_from_local_path(model_path, config_path=None):
     """Load model from local file path."""
     device = set_device()
+    model_path = Path(model_path)
 
     # Load the model
-    model = load_model(model_path, device)
+    model = load_model(str(model_path), device)
 
-    # Load config
-    config = _load_config_from_path(config_path)
+    # Load config - for .pt2 files, try to find associated JSON config first
+    if config_path is None and model_path.suffix == ".pt2":
+        # Look for associated config file
+        json_config_path = Path(str(model_path).replace(".pt2", "_config.json"))
+        if json_config_path.exists():
+            print(f"Found associated config: {json_config_path}")
+            config = _load_config_from_path(str(json_config_path))
+        else:
+            print(f"No associated config found for {model_path}, using default")
+            config = load_config()
+    else:
+        config = _load_config_from_path(config_path)
 
     return model, config
 
 
 def _load_model_from_run_id(run_id, config_path=None):
-    """Load model from training run ID by finding latest model in results directory."""
+    """Load model from training run ID by finding best model in results directory."""
     device = set_device()
 
     # Find the results directory
@@ -217,33 +269,64 @@ def _load_model_from_run_id(run_id, config_path=None):
     ).parent.parent.parent.parent.absolute()
     results_dir = Path(package_path) / "results" / run_id
 
-    # Find the latest model file in the models directory
+    # Find the models directory
     models_dir = results_dir / "models"
     if not models_dir.exists():
         raise FileNotFoundError(f"Models directory not found: {models_dir}")
 
-    model_files = list(models_dir.glob("model_epoch_*.pth"))
-    if not model_files:
-        raise FileNotFoundError(f"No model files found in: {models_dir}")
+    # Look for exported model first (preferred), then fallback to traditional model
+    exported_model = models_dir / "best_model_exported.pt2"
+    traditional_model = models_dir / "best_model.pth"
 
-    # Sort by epoch number and get the latest
-    model_files.sort(key=lambda x: int(x.stem.split("_")[-1]))
-    latest_model = model_files[-1]
-    print(f"Using model: {latest_model}")
+    if exported_model.exists():
+        model_path = exported_model
+        print(f"Using exported model: {model_path}")
+    elif traditional_model.exists():
+        model_path = traditional_model
+        print(f"Using traditional model: {model_path}")
+    else:
+        # Fallback: look for epoch-based models
+        model_files = list(models_dir.glob("model_epoch_*.pth"))
+        if not model_files:
+            raise FileNotFoundError(f"No model files found in: {models_dir}")
+
+        # Sort by epoch number and get the latest
+        model_files.sort(key=lambda x: int(x.stem.split("_")[-1]))
+        model_path = model_files[-1]
+        print(f"Using latest epoch model: {model_path}")
 
     # Load the model
-    model = load_model(str(latest_model), device)
+    model = load_model(str(model_path), device)
 
     # Load config from results directory (or fallback to provided/default)
     if config_path is None:
-        config_file = results_dir / "config.yml"
-        if config_file.exists():
-            with open(config_file, "r") as f:
-                config = yaml.safe_load(f)
-            print(f"Using config from: {config_file}")
+        # For exported models, try JSON config first
+        if model_path.suffix == ".pt2":
+            json_config_path = Path(str(model_path).replace(".pt2", "_config.json"))
+            if json_config_path.exists():
+                with open(json_config_path, "r") as f:
+                    config = json.load(f)
+                print(f"Using JSON config from: {json_config_path}")
+            else:
+                # Fallback to YAML config
+                config_file = results_dir / "config.yml"
+                if config_file.exists():
+                    with open(config_file, "r") as f:
+                        config = yaml.safe_load(f)
+                    print(f"Using YAML config from: {config_file}")
+                else:
+                    print("No config found, using default")
+                    config = load_config()
         else:
-            print(f"Config file not found at {config_file}, using default config")
-            config = load_config()
+            # Traditional model - use YAML config
+            config_file = results_dir / "config.yml"
+            if config_file.exists():
+                with open(config_file, "r") as f:
+                    config = yaml.safe_load(f)
+                print(f"Using config from: {config_file}")
+            else:
+                print(f"Config file not found at {config_file}, using default config")
+                config = load_config()
     else:
         config = _load_config_from_path(config_path)
 
@@ -254,17 +337,32 @@ def get_model(model_path_or_run_id_or_url, config_path=None, force_download=Fals
     """
     Load a model from a local path, run_id, or URL.
 
+    Supports both traditional .pth models and exported .pt2 models.
+    For .pt2 models, no dependency on original model code is needed.
+
     Args:
-        model_path_or_run_id_or_url (str): Either a path to the trained PyTorch model, a run_id,
-                                          or a URL to download the model from.
+        model_path_or_run_id_or_url (str): Either a path to the trained PyTorch model (.pth or .pt2),
+                                          a run_id, or a URL to download the model from.
                                           If run_id, will look for model and config in results/{run_id}/
+                                          Prefers exported .pt2 models when available.
                                           If URL, will download and cache the model locally.
-        config_path (str, optional): Path to config file. If None, uses default config location
-                                    or looks for config in results/{run_id}/config.yml if run_id is provided.
+        config_path (str, optional): Path to config file (.yml or .json). If None, uses default config
+                                    location or looks for config in results/{run_id}/ if run_id is provided.
+                                    For .pt2 models, automatically looks for associated _config.json file.
         force_download (bool): Force re-download of model if it's a URL (default: False).
 
     Returns:
         tuple: (model, config) - The loaded PyTorch model and configuration dictionary.
+
+    Examples:
+        # Load exported model (no CNN import needed)
+        model, config = get_model("path/to/best_model_exported.pt2")
+
+        # Load from run ID (prefers exported model if available)
+        model, config = get_model("2025-01-15_12-34-56abc123")
+
+        # Load traditional model (requires CNN import)
+        model, config = get_model("path/to/best_model.pth")
     """
     # Determine input type and delegate to appropriate handler
     if model_path_or_run_id_or_url.startswith(("http://", "https://")):
@@ -273,7 +371,7 @@ def get_model(model_path_or_run_id_or_url, config_path=None, force_download=Fals
             model_path_or_run_id_or_url, config_path, force_download
         )
     elif (
-        model_path_or_run_id_or_url.endswith(".pth")
+        model_path_or_run_id_or_url.endswith((".pth", ".pt2"))
         or "/" in model_path_or_run_id_or_url
     ):
         # It's a local model path
