@@ -17,7 +17,6 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 import pandas as pd
 import torch
-import torch.export
 from tqdm import tqdm
 
 from cml_wd_pytorch.evaluation.scores import MetricsCalculator
@@ -120,15 +119,15 @@ class BestModelLogger:
                 os.remove(self.best_model_path)
                 print(f"Removed previous best model: {self.best_model_path}")
 
-                # Also remove exported model and config if they exist
-                exported_path = self.best_model_path.replace(
-                    "best_model.pth", "best_model_exported.pt2"
+                # Also remove JIT model and config if they exist
+                jit_path = self.best_model_path.replace(
+                    "best_model.pth", "best_model_jit.pt"
                 )
-                config_path = exported_path.replace(".pt2", "_config.json")
+                config_path = jit_path.replace(".pt", "_config.json")
 
-                if os.path.exists(exported_path):
-                    os.remove(exported_path)
-                    print(f"Removed previous exported model: {exported_path}")
+                if os.path.exists(jit_path):
+                    os.remove(jit_path)
+                    print(f"Removed previous JIT model: {jit_path}")
                 if os.path.exists(config_path):
                     os.remove(config_path)
                     print(f"Removed previous config: {config_path}")
@@ -144,27 +143,25 @@ class BestModelLogger:
             torch.save(model.state_dict(), self.best_model_path)
             print(f"New best model saved to: {self.best_model_path}")
 
-            # Save self-contained exported model
-            exported_model_path = f"{self.package_path}/results/{self.run_id}/models/best_model_exported.pt2"
+            # Save self-contained JIT scripted model
+            jit_model_path = (
+                f"{self.package_path}/results/{self.run_id}/models/best_model_jit.pt"
+            )
             try:
-                # Create example input for export on the same device as the model
-                model_device = next(model.parameters()).device
-                example_input = torch.randn(
-                    1, 2, 180, device=model_device
-                )  # batch_size=1, channels=2, seq_len=180
+                # Create JIT scripted model
+                model.eval()  # Set to eval mode for scripting
+                scripted_model = torch.jit.script(model)
+                torch.jit.save(scripted_model, jit_model_path)
+                print(f"JIT scripted model saved to: {jit_model_path}")
 
-                exported_program = torch.export.export(model, (example_input,))
-                torch.export.save(exported_program, exported_model_path)
-                print(f"Exported self-contained model saved to: {exported_model_path}")
-
-                # Save config alongside the exported model
-                config_path = exported_model_path.replace(".pt2", "_config.json")
+                # Save config alongside the JIT model
+                config_path = jit_model_path.replace(".pt", "_config.json")
                 with open(config_path, "w") as f:
                     json.dump(config, f, indent=2, default=str)
                 print(f"Model config saved to: {config_path}")
 
             except Exception as e:
-                print(f"Warning: Could not export self-contained model: {e}")
+                print(f"Warning: Could not create JIT scripted model: {e}")
                 print("Continuing with standard model saving...")
 
             # Compute and save comprehensive metrics

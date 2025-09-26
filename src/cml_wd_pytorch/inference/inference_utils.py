@@ -46,7 +46,6 @@ import urllib.request
 from pathlib import Path
 
 import torch
-import torch.export
 import yaml
 
 
@@ -115,7 +114,7 @@ def clear_model_cache(cache_dir="~/.cml_wd_pytorch/models"):
     if cache_dir.exists():
         for file in cache_dir.glob("*.pth"):
             file.unlink()
-        for file in cache_dir.glob("*.pt2"):
+        for file in cache_dir.glob("*.pt"):
             file.unlink()
         for file in cache_dir.glob("*.json"):
             file.unlink()
@@ -132,11 +131,11 @@ def list_cached_models(cache_dir="~/.cml_wd_pytorch/models"):
         cache_dir (str): Cache directory to list
 
     Returns:
-        list: List of cached model files (.pth and .pt2)
+        list: List of cached model files (.pth and .pt)
     """
     cache_dir = Path(cache_dir).expanduser()
     if cache_dir.exists():
-        models = list(cache_dir.glob("*.pth")) + list(cache_dir.glob("*.pt2"))
+        models = list(cache_dir.glob("*.pth")) + list(cache_dir.glob("*.pt"))
         return models
     return []
 
@@ -145,11 +144,11 @@ def load_model(model_path, device):
     """
     Load PyTorch model from file path.
 
-    Supports both traditional .pth files and exported .pt2 files.
-    For .pt2 files, no dependency on original model code is needed.
+    Supports both traditional .pth files and JIT scripted .pt files.
+    For JIT .pt files, no dependency on original model code is needed.
 
     Args:
-        model_path (str): Path to the model file (.pth or .pt2).
+        model_path (str): Path to the model file (.pth or .pt).
         device (torch.device): Device to load the model on.
 
     Returns:
@@ -157,22 +156,20 @@ def load_model(model_path, device):
     """
     model_path = Path(model_path)
 
-    if model_path.suffix == ".pt2":
-        # Load exported model using torch.export
+    # Check if this is a JIT scripted model
+    if model_path.suffix == ".pt" and "jit" in model_path.stem:
+        # Load JIT scripted model
         try:
-            exported_program = torch.export.load(str(model_path))
-            model = exported_program.module()
-
-            # Move model to the specified device
-            model.to(device)
+            model = torch.jit.load(str(model_path), map_location=device)
+            model.eval()  # Set to evaluation mode
 
             # Add window_size attribute (based on the data preprocessing, it's 180)
             model.window_size = 180
-            print(f"✅ Loaded exported model from: {model_path}")
+            print(f"✅ Loaded JIT scripted model from: {model_path}")
             return model
 
         except Exception as e:
-            raise RuntimeError(f"Failed to load exported model {model_path}: {e}")
+            raise RuntimeError(f"Failed to load JIT scripted model {model_path}: {e}")
 
     else:
         # Traditional .pth loading - requires importing the model class
@@ -181,7 +178,7 @@ def load_model(model_path, device):
         except ImportError as e:
             raise ImportError(
                 f"Cannot load .pth file {model_path} because model class is not available. "
-                f"Use .pt2 exported models for dependency-free loading. Error: {e}"
+                f"Use JIT scripted .pt models for dependency-free loading. Error: {e}"
             )
 
         # Create the model instance first
@@ -243,10 +240,10 @@ def _load_model_from_local_path(model_path, config_path=None):
     # Load the model
     model = load_model(str(model_path), device)
 
-    # Load config - for .pt2 files, try to find associated JSON config first
-    if config_path is None and model_path.suffix == ".pt2":
+    # Load config - for JIT .pt files, try to find associated JSON config first
+    if config_path is None and model_path.suffix == ".pt" and "jit" in model_path.stem:
         # Look for associated config file
-        json_config_path = Path(str(model_path).replace(".pt2", "_config.json"))
+        json_config_path = Path(str(model_path).replace(".pt", "_config.json"))
         if json_config_path.exists():
             print(f"Found associated config: {json_config_path}")
             config = _load_config_from_path(str(json_config_path))
@@ -274,13 +271,13 @@ def _load_model_from_run_id(run_id, config_path=None):
     if not models_dir.exists():
         raise FileNotFoundError(f"Models directory not found: {models_dir}")
 
-    # Look for exported model first (preferred), then fallback to traditional model
-    exported_model = models_dir / "best_model_exported.pt2"
+    # Look for JIT model first (preferred), then fallback to traditional model
+    jit_model = models_dir / "best_model_jit.pt"
     traditional_model = models_dir / "best_model.pth"
 
-    if exported_model.exists():
-        model_path = exported_model
-        print(f"Using exported model: {model_path}")
+    if jit_model.exists():
+        model_path = jit_model
+        print(f"Using JIT scripted model: {model_path}")
     elif traditional_model.exists():
         model_path = traditional_model
         print(f"Using traditional model: {model_path}")
@@ -300,9 +297,9 @@ def _load_model_from_run_id(run_id, config_path=None):
 
     # Load config from results directory (or fallback to provided/default)
     if config_path is None:
-        # For exported models, try JSON config first
-        if model_path.suffix == ".pt2":
-            json_config_path = Path(str(model_path).replace(".pt2", "_config.json"))
+        # For JIT models, try JSON config first
+        if model_path.suffix == ".pt" and "jit" in model_path.stem:
+            json_config_path = Path(str(model_path).replace(".pt", "_config.json"))
             if json_config_path.exists():
                 with open(json_config_path, "r") as f:
                     config = json.load(f)
@@ -337,28 +334,28 @@ def get_model(model_path_or_run_id_or_url, config_path=None, force_download=Fals
     """
     Load a model from a local path, run_id, or URL.
 
-    Supports both traditional .pth models and exported .pt2 models.
-    For .pt2 models, no dependency on original model code is needed.
+    Supports both traditional .pth models and JIT scripted .pt models.
+    For JIT .pt models, no dependency on original model code is needed.
 
     Args:
-        model_path_or_run_id_or_url (str): Either a path to the trained PyTorch model (.pth or .pt2),
+        model_path_or_run_id_or_url (str): Either a path to the trained PyTorch model (.pth or .pt),
                                           a run_id, or a URL to download the model from.
                                           If run_id, will look for model and config in results/{run_id}/
-                                          Prefers exported .pt2 models when available.
+                                          Prefers JIT scripted .pt models when available.
                                           If URL, will download and cache the model locally.
         config_path (str, optional): Path to config file (.yml or .json). If None, uses default config
                                     location or looks for config in results/{run_id}/ if run_id is provided.
-                                    For .pt2 models, automatically looks for associated _config.json file.
+                                    For JIT .pt models, automatically looks for associated _config.json file.
         force_download (bool): Force re-download of model if it's a URL (default: False).
 
     Returns:
         tuple: (model, config) - The loaded PyTorch model and configuration dictionary.
 
     Examples:
-        # Load exported model (no CNN import needed)
-        model, config = get_model("path/to/best_model_exported.pt2")
+        # Load JIT scripted model (no CNN import needed)
+        model, config = get_model("path/to/best_model_jit.pt")
 
-        # Load from run ID (prefers exported model if available)
+        # Load from run ID (prefers JIT model if available)
         model, config = get_model("2025-01-15_12-34-56abc123")
 
         # Load traditional model (requires CNN import)
@@ -371,7 +368,7 @@ def get_model(model_path_or_run_id_or_url, config_path=None, force_download=Fals
             model_path_or_run_id_or_url, config_path, force_download
         )
     elif (
-        model_path_or_run_id_or_url.endswith((".pth", ".pt2"))
+        model_path_or_run_id_or_url.endswith((".pth", ".pt"))
         or "/" in model_path_or_run_id_or_url
     ):
         # It's a local model path
