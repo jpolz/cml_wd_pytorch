@@ -5,16 +5,24 @@ This module provides utility functions for loading, caching, and managing PyTorc
 used for Commercial Microwave Link (CML) wet/dry classification inference. It supports
 multiple model loading mechanisms including:
 
-- Local file paths (.pth files)
+- Local file paths (.pth and .pt2 files)
 - Remote URLs with automatic download and caching
 - Run IDs from training results directories
 
 Key Features:
+    - Universal model loading: .pth (traditional) and .pt2 (exported) formats
     - Automatic model downloading and caching from URLs
-    - Smart model loading with fallback for PyTorch compatibility
+    - Smart model loading with preference for exported models
     - Configuration management with flexible config loading
     - Support for different model sources (local, remote, run-based)
     - GPU/CPU device detection and management
+
+Model Format Support:
+    - .pth files: Traditional PyTorch state dicts (requires CNN class import)
+      → Used for training, development, model inspection, and fine-tuning
+    - .pt files: JIT scripted models (self-contained, no imports needed)
+      → Used for production deployment, sharing, and inference-only applications
+    - Automatic preference for .pt JIT models when available for maximum portability
 
 Main Functions:
     - get_model(): Universal model loader supporting multiple input types
@@ -29,13 +37,13 @@ Cache Management:
     and list_cached_models() functions.
 
 Example Usage:
-    # Load from local path
+    # Load from local path (prefers .pt2 if available)
     model, config = get_model("path/to/model.pth")
 
     # Load from URL (with automatic caching)
     model, config = get_model("https://example.com/model.pth")
 
-    # Load from training run ID
+    # Load from training run ID (prefers exported models)
     model, config = get_model("2025-01-15_12-34-56abc123")
 """
 
@@ -245,7 +253,7 @@ def _load_model_from_local_path(model_path, config_path=None):
         # Look for associated config file
         json_config_path = Path(str(model_path).replace(".pt", "_config.json"))
         if json_config_path.exists():
-            print(f"Found associated config: {json_config_path}")
+            print(f"Using JSON config from: {json_config_path}")
             config = _load_config_from_path(str(json_config_path))
         else:
             print(f"No associated config found for {model_path}, using default")
@@ -352,13 +360,13 @@ def get_model(model_path_or_run_id_or_url, config_path=None, force_download=Fals
         tuple: (model, config) - The loaded PyTorch model and configuration dictionary.
 
     Examples:
-        # Load JIT scripted model (no CNN import needed)
+        # Production: Load JIT scripted model (no CNN import needed)
         model, config = get_model("path/to/best_model_jit.pt")
 
-        # Load from run ID (prefers JIT model if available)
+        # Load from run ID (prefers JIT model for production)
         model, config = get_model("2025-01-15_12-34-56abc123")
 
-        # Load traditional model (requires CNN import)
+        # Development: Load traditional model (allows model inspection)
         model, config = get_model("path/to/best_model.pth")
     """
     # Determine input type and delegate to appropriate handler

@@ -218,15 +218,15 @@ if __name__ == "__main__":
         print(f"Best validation loss: {best_model_info['best_val_loss']:.6f}")
         print(f"Best model saved to: {best_model_info['best_model_path']}")
 
-        # Check if exported model exists
-        exported_path = best_model_info["best_model_path"].replace(
-            "best_model.pth", "best_model_exported.pt2"
+        # Check if JIT model exists
+        jit_path = best_model_info["best_model_path"].replace(
+            "best_model.pth", "best_model_jit.pt"
         )
-        config_path = exported_path.replace(".pt2", "_config.json")
-        if os.path.exists(exported_path):
-            print(f"Exported model saved to: {exported_path}")
+        config_path = jit_path.replace(".pt", "_config.json")
+        if os.path.exists(jit_path):
+            print(f"JIT scripted model saved to: {jit_path}")
             print(f"Model config saved to: {config_path}")
-            print("  ↳ Use torch.export.load() to load without importing CNN class")
+            print("  ↳ Use torch.jit.load() to load without importing CNN class")
 
         print(
             f"Comprehensive metrics report available at: {str(package_path)}/results/{run_id}/scores/best_epoch_comprehensive_metrics.txt"

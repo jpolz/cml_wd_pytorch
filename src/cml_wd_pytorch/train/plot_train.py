@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-
+import warnings
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -122,6 +122,11 @@ def plot_training_curves_from_csv(csv_path, save_dir, filename="training_curves.
 def plot_training_history(loss_dict, run_id, package_path):
     """
     Legacy function for backward compatibility.
+
+    .. deprecated::
+        Use plot_training_curves_from_csv() instead. This function is maintained
+        for backward compatibility only.
+
     Plot training history from loss dictionary and save the figure.
 
     Args:
@@ -129,6 +134,11 @@ def plot_training_history(loss_dict, run_id, package_path):
         run_id (str): Unique identifier for the training run.
         package_path (str): Base path of the package to construct the full save path.
     """
+    warnings.warn(
+        "plot_training_history() is deprecated. Use plot_training_curves_from_csv() instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
     # plot loss curves
     plt.figure(figsize=(10, 5))

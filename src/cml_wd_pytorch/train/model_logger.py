@@ -143,7 +143,7 @@ class BestModelLogger:
             torch.save(model.state_dict(), self.best_model_path)
             print(f"New best model saved to: {self.best_model_path}")
 
-            # Save self-contained JIT scripted model
+            # Save self-contained JIT scripted model (for production)
             jit_model_path = (
                 f"{self.package_path}/results/{self.run_id}/models/best_model_jit.pt"
             )
@@ -152,17 +152,18 @@ class BestModelLogger:
                 model.eval()  # Set to eval mode for scripting
                 scripted_model = torch.jit.script(model)
                 torch.jit.save(scripted_model, jit_model_path)
-                print(f"JIT scripted model saved to: {jit_model_path}")
+                print(f"✅ JIT scripted model saved to: {jit_model_path}")
+                print("  ↳ Use for production deployment (no CNN import needed)")
 
                 # Save config alongside the JIT model
                 config_path = jit_model_path.replace(".pt", "_config.json")
                 with open(config_path, "w") as f:
                     json.dump(config, f, indent=2, default=str)
-                print(f"Model config saved to: {config_path}")
+                print(f"✅ Model config saved to: {config_path}")
 
             except Exception as e:
-                print(f"Warning: Could not create JIT scripted model: {e}")
-                print("Continuing with standard model saving...")
+                print(f"⚠️  Warning: Could not create JIT scripted model: {e}")
+                print("   Continuing with standard model saving (development use)...")
 
             # Compute and save comprehensive metrics
             self._compute_and_save_comprehensive_metrics(
