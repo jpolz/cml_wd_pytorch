@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os
 import uuid
 from datetime import datetime
@@ -55,16 +56,24 @@ if __name__ == "__main__":
     ##########################
     # Set up experiment run  #
     ##########################
+
+    # Set up logging
+    logger = logging.getLogger(__name__)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+
     device = (
         torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
     )
-    print("device: ", device)
+    logger.info(f"device: {device}")
     # get date string
     date_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    print("date: ", date_str)
+    logger.info(f"date: {date_str}")
     # generate run id
     run_id = date_str + str(uuid.uuid4())
-    print("run id: ", run_id)
+    logger.info(f"run id: {run_id}")
 
     package_path = Path(
         os.path.abspath(__file__)
@@ -76,9 +85,9 @@ if __name__ == "__main__":
     else:
         config_path = str(package_path) + "/src/cml_wd_pytorch/config/config.yml"
 
-    print(f"Loading config from: {config_path}")
-    with open(config_path, "r") as f:
-        config = yaml.safe_load(f)
+    logger.info(f"Loading config from: {config_path}")
+    with open(config_path, "r") as file:
+        config = yaml.safe_load(file)
 
     if (
         not os.path.exists(str(package_path) + "/results/%s/" % run_id)
@@ -119,7 +128,7 @@ if __name__ == "__main__":
         indices=np.arange(1000000),
         reflength=config["data"]["reflength"],
     )
-    print("dataloader train length: ", len(dataloader_train))
+    logger.info(f"dataloader train length: {len(dataloader_train)}")
     dataloader_val = build_dataloader(
         config["data"]["path_val"],
         batch_size=config["training"]["batch_size"],
@@ -129,7 +138,7 @@ if __name__ == "__main__":
         indices=np.arange(1000000),
         reflength=config["data"]["reflength"],
     )
-    print("dataloader val length: ", len(dataloader_val))
+    logger.info(f"dataloader val length: {len(dataloader_val)}")
 
     metrics = MetricTracker(metrics=config["training"]["metrics"]["tracked_metrics"])
 
@@ -180,10 +189,12 @@ if __name__ == "__main__":
         )  # Empty dicts since we only track BCE internally
         current_metrics = metrics.get_metrics()
 
-        # Print simplified progress
+        # Log simplified progress
         train_loss = current_metrics["train_bce"][-1]
         val_loss = current_metrics["val_bce"][-1]
-        print(f"Epoch {epoch}: Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
+        logger.info(
+            f"Epoch {epoch}: Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}"
+        )
 
         if not config["experiment"]["debug"]:
             # Check if this is the best model so far and handle all metrics logging
@@ -202,21 +213,21 @@ if __name__ == "__main__":
         # early stopping check
         monitor_metric = config["training"]["early_stopping"]["monitor"]
         if early_stopping(metrics.get_latest(monitor_metric, "val"), epoch):
-            print("Early stopping triggered at epoch:", epoch)
-            print(f"Best val_{monitor_metric}:", early_stopping.best_score)
-            print("Best epoch:", early_stopping.best_epoch)
+            logger.info(f"Early stopping triggered at epoch: {epoch}")
+            logger.info(f"Best val_{monitor_metric}: {early_stopping.best_score}")
+            logger.info(f"Best epoch: {early_stopping.best_epoch}")
             break
 
-    # Print final summary about the best model
-    print("\n" + "=" * 80)
-    print("TRAINING SUMMARY")
-    print("=" * 80)
+    # Log final summary about the best model
+    logger.info("\n" + "=" * 80)
+    logger.info("TRAINING SUMMARY")
+    logger.info("=" * 80)
 
     best_model_info = best_model_logger.get_best_model_info()
     if best_model_info["best_epoch"] >= 0:
-        print(f"Best model found at epoch: {best_model_info['best_epoch']}")
-        print(f"Best validation loss: {best_model_info['best_val_loss']:.6f}")
-        print(f"Best model saved to: {best_model_info['best_model_path']}")
+        logger.info(f"Best model found at epoch: {best_model_info['best_epoch']}")
+        logger.info(f"Best validation loss: {best_model_info['best_val_loss']:.6f}")
+        logger.info(f"Best model saved to: {best_model_info['best_model_path']}")
 
         # Check if JIT model exists
         jit_path = best_model_info["best_model_path"].replace(
@@ -224,19 +235,19 @@ if __name__ == "__main__":
         )
         config_path = jit_path.replace(".pt", "_config.json")
         if os.path.exists(jit_path):
-            print(f"JIT scripted model saved to: {jit_path}")
-            print(f"Model config saved to: {config_path}")
-            print("  ↳ Use torch.jit.load() to load without importing CNN class")
+            logger.info(f"JIT scripted model saved to: {jit_path}")
+            logger.info(f"Model config saved to: {config_path}")
+            logger.info("  ↳ Use torch.jit.load() to load without importing CNN class")
 
-        print(
+        logger.info(
             f"Comprehensive metrics report available at: {str(package_path)}/results/{run_id}/scores/best_epoch_comprehensive_metrics.txt"
         )
 
         # Generate final training curve plots
         plot_path = best_model_logger.generate_training_plots()
         if plot_path:
-            print(f"Training curves plot saved to: {plot_path}")
+            logger.info(f"Training curves plot saved to: {plot_path}")
 
     else:
-        print("No model was saved (debug mode or no improvement)")
-    print("=" * 80)
+        logger.info("No model was saved (debug mode or no improvement)")
+    logger.info("=" * 80)

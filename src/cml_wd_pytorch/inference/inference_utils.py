@@ -49,12 +49,16 @@ Example Usage:
 
 import hashlib
 import json
+import logging
 import os
 import urllib.request
 from pathlib import Path
 
 import torch
 import yaml
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 
 def set_device():
@@ -102,11 +106,11 @@ def download_and_cache_model(
     cached_path = cache_dir / model_filename
 
     if not cached_path.exists() or force_download:
-        print(f"Downloading model from {model_url}...")
+        logger.info(f"Downloading model from {model_url}...")
         urllib.request.urlretrieve(model_url, cached_path)
-        print(f"Model cached at {cached_path}")
+        logger.info(f"Model cached at {cached_path}")
     else:
-        print(f"Using cached model at {cached_path}")
+        logger.info(f"Using cached model at {cached_path}")
 
     return cached_path
 
@@ -126,9 +130,9 @@ def clear_model_cache(cache_dir="~/.cml_wd_pytorch/models"):
             file.unlink()
         for file in cache_dir.glob("*.json"):
             file.unlink()
-        print(f"Cleared cache at {cache_dir}")
+        logger.info(f"Cleared cache at {cache_dir}")
     else:
-        print(f"Cache directory {cache_dir} does not exist")
+        logger.debug(f"Cache directory {cache_dir} does not exist")
 
 
 def list_cached_models(cache_dir="~/.cml_wd_pytorch/models"):
@@ -173,7 +177,7 @@ def load_model(model_path, device):
 
             # Add window_size attribute (based on the data preprocessing, it's 180)
             model.window_size = 180
-            print(f"✅ Loaded JIT scripted model from: {model_path}")
+            logger.info(f"✅ Loaded JIT scripted model from: {model_path}")
             return model
 
         except Exception as e:
@@ -209,7 +213,7 @@ def load_model(model_path, device):
 
         # Add window_size attribute (based on the data preprocessing, it's 180)
         model.window_size = 180
-        print(f"✅ Loaded traditional model from: {model_path}")
+        logger.info(f"✅ Loaded traditional model from: {model_path}")
         return model
 
 
@@ -253,10 +257,10 @@ def _load_model_from_local_path(model_path, config_path=None):
         # Look for associated config file
         json_config_path = Path(str(model_path).replace(".pt", "_config.json"))
         if json_config_path.exists():
-            print(f"Using JSON config from: {json_config_path}")
+            logger.info(f"Using JSON config from: {json_config_path}")
             config = _load_config_from_path(str(json_config_path))
         else:
-            print(f"No associated config found for {model_path}, using default")
+            logger.debug(f"No associated config found for {model_path}, using default")
             config = load_config()
     else:
         config = _load_config_from_path(config_path)
@@ -285,10 +289,10 @@ def _load_model_from_run_id(run_id, config_path=None):
 
     if jit_model.exists():
         model_path = jit_model
-        print(f"Using JIT scripted model: {model_path}")
+        logger.info(f"Using JIT scripted model: {model_path}")
     elif traditional_model.exists():
         model_path = traditional_model
-        print(f"Using traditional model: {model_path}")
+        logger.info(f"Using traditional model: {model_path}")
     else:
         # Fallback: look for epoch-based models
         model_files = list(models_dir.glob("model_epoch_*.pth"))
@@ -298,7 +302,7 @@ def _load_model_from_run_id(run_id, config_path=None):
         # Sort by epoch number and get the latest
         model_files.sort(key=lambda x: int(x.stem.split("_")[-1]))
         model_path = model_files[-1]
-        print(f"Using latest epoch model: {model_path}")
+        logger.info(f"Using latest epoch model: {model_path}")
 
     # Load the model
     model = load_model(str(model_path), device)
@@ -311,16 +315,16 @@ def _load_model_from_run_id(run_id, config_path=None):
             if json_config_path.exists():
                 with open(json_config_path, "r") as f:
                     config = json.load(f)
-                print(f"Using JSON config from: {json_config_path}")
+                logger.info(f"Using JSON config from: {json_config_path}")
             else:
                 # Fallback to YAML config
                 config_file = results_dir / "config.yml"
                 if config_file.exists():
                     with open(config_file, "r") as f:
                         config = yaml.safe_load(f)
-                    print(f"Using YAML config from: {config_file}")
+                    logger.info(f"Using YAML config from: {config_file}")
                 else:
-                    print("No config found, using default")
+                    logger.debug("No config found, using default")
                     config = load_config()
         else:
             # Traditional model - use YAML config
@@ -328,9 +332,11 @@ def _load_model_from_run_id(run_id, config_path=None):
             if config_file.exists():
                 with open(config_file, "r") as f:
                     config = yaml.safe_load(f)
-                print(f"Using config from: {config_file}")
+                logger.info(f"Using config from: {config_file}")
             else:
-                print(f"Config file not found at {config_file}, using default config")
+                logger.warning(
+                    f"Config file not found at {config_file}, using default config"
+                )
                 config = load_config()
     else:
         config = _load_config_from_path(config_path)

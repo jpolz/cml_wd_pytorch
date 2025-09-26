@@ -9,6 +9,7 @@ This module encapsulates the logic for:
 """
 
 import json
+import logging
 import os
 import warnings
 from datetime import datetime
@@ -22,6 +23,9 @@ from tqdm import tqdm
 from cml_wd_pytorch.evaluation.scores import MetricsCalculator
 
 from .plot_train import plot_training_curves_from_csv
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 
 class BestModelLogger:
@@ -76,7 +80,7 @@ class BestModelLogger:
         )
         df_essential.to_csv(essential_metrics_path, index=False)
 
-        print(f"Essential scores saved to: {essential_metrics_path}")
+        logger.info(f"Essential scores saved to: {essential_metrics_path}")
 
     def check_and_update_best_model(
         self,
@@ -110,14 +114,14 @@ class BestModelLogger:
         self.log_losses(epoch, train_bce, current_val_loss)
 
         if current_val_loss < self.best_val_loss:
-            print(
+            logger.info(
                 f"\n🎯 NEW BEST MODEL! Validation loss improved from {self.best_val_loss:.4f} to {current_val_loss:.4f}"
             )
 
             # Remove previous best model if it exists
             if self.best_model_path and os.path.exists(self.best_model_path):
                 os.remove(self.best_model_path)
-                print(f"Removed previous best model: {self.best_model_path}")
+                logger.debug(f"Removed previous best model: {self.best_model_path}")
 
                 # Also remove JIT model and config if they exist
                 jit_path = self.best_model_path.replace(
@@ -127,10 +131,10 @@ class BestModelLogger:
 
                 if os.path.exists(jit_path):
                     os.remove(jit_path)
-                    print(f"Removed previous JIT model: {jit_path}")
+                    logger.debug(f"Removed previous JIT model: {jit_path}")
                 if os.path.exists(config_path):
                     os.remove(config_path)
-                    print(f"Removed previous config: {config_path}")
+                    logger.debug(f"Removed previous config: {config_path}")
 
             # Update best metrics
             self.best_val_loss = current_val_loss
@@ -141,7 +145,7 @@ class BestModelLogger:
 
             # Save new best model (traditional format)
             torch.save(model.state_dict(), self.best_model_path)
-            print(f"New best model saved to: {self.best_model_path}")
+            logger.info(f"New best model saved to: {self.best_model_path}")
 
             # Save self-contained JIT scripted model (for production)
             jit_model_path = (
@@ -152,18 +156,20 @@ class BestModelLogger:
                 model.eval()  # Set to eval mode for scripting
                 scripted_model = torch.jit.script(model)
                 torch.jit.save(scripted_model, jit_model_path)
-                print(f"✅ JIT scripted model saved to: {jit_model_path}")
-                print("  ↳ Use for production deployment (no CNN import needed)")
+                logger.info(f"✅ JIT scripted model saved to: {jit_model_path}")
+                logger.info("  ↳ Use for production deployment (no CNN import needed)")
 
                 # Save config alongside the JIT model
                 config_path = jit_model_path.replace(".pt", "_config.json")
                 with open(config_path, "w") as f:
                     json.dump(config, f, indent=2, default=str)
-                print(f"✅ Model config saved to: {config_path}")
+                logger.info(f"✅ Model config saved to: {config_path}")
 
             except Exception as e:
-                print(f"⚠️  Warning: Could not create JIT scripted model: {e}")
-                print("   Continuing with standard model saving (development use)...")
+                logger.warning(f"⚠️  Warning: Could not create JIT scripted model: {e}")
+                logger.warning(
+                    "   Continuing with standard model saving (development use)..."
+                )
 
             # Compute and save comprehensive metrics
             self._compute_and_save_comprehensive_metrics(
@@ -179,10 +185,10 @@ class BestModelLogger:
             # Generate training curve plots
             self.generate_training_plots()
 
-            print("=" * 80)
+            logger.info("=" * 80)
             return True
         else:
-            print(
+            logger.info(
                 f"No improvement. Best validation loss remains {self.best_val_loss:.4f} (epoch {self.best_epoch})"
             )
             return False
@@ -209,9 +215,9 @@ class BestModelLogger:
             epoch: Current training epoch
             current_val_loss: Current validation loss
         """
-        print("\n" + "=" * 80)
-        print("COMPREHENSIVE METRICS SUMMARY FOR BEST EPOCH")
-        print("=" * 80)
+        logger.info("\n" + "=" * 80)
+        logger.info("COMPREHENSIVE METRICS SUMMARY FOR BEST EPOCH")
+        logger.info("=" * 80)
 
         # Compute comprehensive metrics with all predictions
         val_probs, val_preds_comprehensive, val_ys_comprehensive = (
@@ -231,7 +237,7 @@ class BestModelLogger:
                 probabilities=val_probs,
             )
 
-        print(comprehensive_report)
+        logger.info(comprehensive_report)
 
         # Save comprehensive metrics report to file
         report_path = f"{self.package_path}/results/{self.run_id}/scores/best_epoch_comprehensive_metrics.txt"
@@ -240,7 +246,7 @@ class BestModelLogger:
             f.write(f"Best Validation Loss: {current_val_loss:.6f}\n\n")
             f.write(comprehensive_report)
 
-        print(f"\nComprehensive metrics saved to: {report_path}")
+        logger.info(f"\nComprehensive metrics saved to: {report_path}")
 
         # Save metadata about the best model
         self._save_model_metadata(epoch, current_val_loss, report_path)
@@ -324,7 +330,7 @@ class BestModelLogger:
         with open(metadata_path, "w") as f:
             json.dump(metadata, f, indent=2)
 
-        print(f"Best model metadata saved to: {metadata_path}")
+        logger.info(f"Best model metadata saved to: {metadata_path}")
 
     def get_best_model_info(self) -> Dict[str, Any]:
         """

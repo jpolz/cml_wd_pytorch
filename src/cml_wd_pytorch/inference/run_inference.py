@@ -337,8 +337,8 @@ def test_cnn_wd():
     # Example usage with run_id (this would fail in test but shows the interface)
     # final_dataset_from_run_id = cnn_wd("2025-01-15_12-34-56abc123", data, batch_size=32)
 
-    print("Test completed successfully!")
-    print(f"Cached models: {len(list_cached_models())}")
+    logging.info("Test completed successfully!")
+    logging.info(f"Cached models: {len(list_cached_models())}")
 
 
 if __name__ == "__main__":
