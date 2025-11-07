@@ -1,12 +1,12 @@
 data:
   num_workers: 40
-  path_train: /bg/fast/aihydromet/cml_wet_dry_radklim/cml_radklim_v3_2018_2019.zarr
-  path_val: /bg/fast/aihydromet/cml_wet_dry_radklim/cml_radklim_v3_2020.zarr
+  path_train: NA
+  path_val: NA
   reflength: 60
 experiment:
   debug: false
   name: NA
-  run_id: 2025-09-23_20-45-29fc3efd7b-a1ca-4a3a-8d23-a7ace02ba92b
+  run_id: 2025-09-25_11-35-13ecf8d577-c8bb-44cc-a20e-4fbda0927ffd
   seed: 42
 model:
   type: cnn
@@ -14,10 +14,24 @@ training:
   amsgrad: true
   batch_size: 100
   checkpoint_interval: 20
+  early_stopping:
+    min_delta: 0.001
+    mode: min
+    monitor: bce
+    patience: 10
   epochs: 500
   learning_rate: 0.0001
   loss_fns:
   - bce
   loss_weights:
   - 1
+  metrics:
+    tracked_metrics:
+    - bce
+    - acc
+    - tpr
+    - tnr
+    - acc_cml
+    - tpr_cml
+    - tnr_cml
   optimizer: AdamW
