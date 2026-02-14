@@ -21,6 +21,8 @@ dependencies = [
     'ipykernel',
     'scikit-learn',
 ]
+[project.optional-dependencies]
+test = ["pytest", "pytest-cov"]
 
 [project.scripts]
 cml-wd-pytorch = "cml_wd_pytorch:main"
@@ -29,3 +31,13 @@ test_inference = "cml_wd_pytorch.inference.run_inference:test_cnn_wd"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
+xfail_strict = true
+log_cli_level = "INFO"
+testpaths = ["tests"]
+
+[tool.coverage]
+run.source = ["cml_wd_pytorch"]
